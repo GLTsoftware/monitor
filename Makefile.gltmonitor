@@ -6,6 +6,7 @@ LIB = $(COMMONLIB)/libdsm.a -lpthread -lrt -lcurses -lm
 COMMONINC = /common/include/
 COMMONLIB = /common/lib/
 GLOBALINC = /global/include/
+OBSBIN = /application/bin
 
 SOURCES = gltmonitor.c gltAntMonitor.c  
 
@@ -16,8 +17,8 @@ all: gltmonitor
 clean:
 	rm *.o ./gltmonitor
 
-#install: all
-#	cp monitor $(OBSBIN)/
+install: all
+	cp gltmonitor $(OBSBIN)/
 
 gltmonitor: $(OBJECTS) ./Makefile
 	$(CC) -o gltmonitor $(OBJECTS) $(LIB)
