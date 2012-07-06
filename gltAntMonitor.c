@@ -4,6 +4,10 @@ Only uses DSM, no RM.
 Removed all Tilt and Chopper related variables; showing only a small subset
 of usual variables.
 NAP 17 June 2012.
+
+NAP 27 June 2012: added ACU monitor points as written by Servo 
+(on the right side of the antenna page).
+
 */
 
 #include <stdio.h>
@@ -56,7 +60,6 @@ int antDisplay(int ant, int icount) {
   double dummyDouble;
   short dummyShort;
   double timeError;
-  char host[6];
   char azDriveState;
   time_t timestamp;
   short disableDrivesFlag;
@@ -75,14 +78,12 @@ int antDisplay(int ant, int icount) {
 	  rms=call_dsm_read(DSM_HOST,"DSM_COMMANDED_EL_DEG_F",&dummyFloat,&timestamp);
 	  el_disp=(double)dummyFloat;
 	  rms=call_dsm_read(DSM_HOST, "DSM_AZ_TRACKING_ERROR_F",&dummyFloat,&timestamp);
-printf("az tracking error = %f\n",dummyFloat);
           if(rms != DSM_SUCCESS) {
            dsm_error_message(rms,"dsm_write(DSM_AZ_TRACKING_ERROR_F)");
                 }
 
 	  az_error=(double)dummyFloat;
 	  rms=call_dsm_read(DSM_HOST, "DSM_EL_TRACKING_ERROR_F",&dummyFloat,&timestamp);
-printf("el tracking error = %f\n",dummyFloat);
 	  el_error=(double)dummyFloat;
 
 	  rms=call_dsm_read(DSM_HOST,"DSM_RA_APP_HR_D", &ra_disp,&timestamp);
@@ -161,7 +162,6 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   int lstsi,utcsi,az_cmd_si,az_act_si,el_cmd_si,el_act_si;
   double ha;
   double timeError;
-  char host[6];
   int wackoSource, i;
   char azDriveState;
   char padIDIsFake;
@@ -177,6 +177,11 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   short pair=2;
 	
   short foreground,background;
+
+  char acu_error,az_brake,az_status[8],el_brake,el_status[8];
+  char stow_pin[2],system_status[3];
+
+  int nextline;
 
   ha=*lst_disp-*ra_disp;
 
@@ -672,6 +677,571 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   move(22,13);
   printw("%s",lastcommand);
 
+/* displaying ACU messages */
+
+/* reading ACU variables written by dsmsubs.c via servo */
+
+  dsm_read(DSM_HOST,"DSM_ACU_ERROR_B",&acu_error, &timestamp);
+  dsm_read(DSM_HOST,"DSM_AZ_BRAKE_B",&az_brake, &timestamp);
+  dsm_read(DSM_HOST,"DSM_EL_BRAKE_B",&el_brake, &timestamp);
+  dsm_read(DSM_HOST,"DSM_AZ_STATUS_V8_B",az_status, &timestamp);
+  dsm_read(DSM_HOST,"DSM_EL_STATUS_V8_B",el_status, &timestamp);
+  dsm_read(DSM_HOST,"DSM_STOW_PIN_V2_B",stow_pin, &timestamp);
+  dsm_read(DSM_HOST,"DSM_SYSTEM_STATUS_V3_B",system_status, &timestamp);
+
+
+/* Brakes and Stow pins */
+
+  move(2,60);
+  addstr("AZ");
+  move(2,68);
+  addstr("EL");
+  move(4,45);
+  addstr("Brakes:");
+  
+  if(az_brake==0x00){
+  move(4,60);
+  printw("OFF");
+  }
+
+  if(az_brake==0x01){
+  move(4,60);
+  printw("ON");
+  }
+
+  if(el_brake==0x00){
+  move(4,67);
+  printw("OFF");
+  }
+
+  if(el_brake==0x01){
+  move(4,67);
+  printw("ON");
+  }
+
+  move(5,45);
+  addstr("Stow-pins:");
+
+  if(stow_pin[0]==1){
+  move(5,60);
+  printw("IN");
+  }
+
+  if(stow_pin[0]==2){
+  move(5,60);
+  printw("OUT");
+  }
+
+  if(stow_pin[1]==1){
+  move(5,67);
+  printw("IN");
+  }
+
+  if(stow_pin[1]==2){
+  move(5,67);
+  printw("OUT");
+  }
+
+/* Az status */
+
+  move(7,45);
+  addstr("AZ status:");
+  nextline=8;
+
+  if(az_status[0]==0) {
+	move(7,56);
+	addstr("OK");
+	} else {
+	move(7,56);
+	addstr("  ");
+	}
+
+  if(az_status[0] & 0x1) {
+  	move(nextline,45);
+	printw("Prelimit cw hit");
+	nextline++;
+	}
+  if(az_status[0] & 0x2) {
+	move(nextline,45);
+	printw("Prelimit ccw hit");
+	nextline++;
+	}
+  if(az_status[0] & 0x4) {
+	move(nextline,45);
+	printw("Limit cw hit");
+	nextline++;
+	}
+  if(az_status[0] & 0x8) {
+	move(nextline,45);
+	printw("Limit ccw hit");
+	nextline++;
+	}
+  if(az_status[0] & 0x10) {
+	move(nextline,45);
+	printw("Emergency limit cw ");
+	nextline++;
+	}
+  if(az_status[0] & 0x20) {
+	move(nextline,45);
+	printw("Emergency limit ccw ");
+	nextline++;
+	}
+  if(az_status[0] & 0x40) {
+	move(nextline,45);
+	printw("2nd Emergency limit cw ");
+	nextline++;
+	}
+  if(az_status[0] & 0x80) {
+	move(nextline,45);
+	printw("2nd Emergency limit ccw ");
+	nextline++;
+	}
+
+  if(az_status[1] & 0x1) {
+	move(nextline,45);
+	printw("Servo failure");
+	nextline++;
+	}
+
+  if(az_status[1] & 0x1) {
+	move(nextline,45);
+	printw("Servo failure");
+	nextline++;
+	}
+  if(az_status[1] & 0x2) {
+	move(nextline,45);
+	printw("Overspeed");
+	nextline++;
+	}
+  if(az_status[1] & 0x4) {
+	move(nextline,45);
+	printw("No motion");
+	nextline++;
+	}
+  if(az_status[1] & 0x8) {
+	move(nextline,45);
+	printw("Speed zero");
+	nextline++;
+	}
+  if(az_status[1] & 0x10) {
+	move(nextline,45);
+	printw("Stow position ");
+	nextline++;
+	}
+  if(az_status[1] & 0x20) {
+	move(nextline,45);
+	printw("Encoder failure");
+	nextline++;
+	}
+  if(az_status[1] & 0x40) {
+	move(nextline,45);
+	printw("Insane velocity feedback");
+	nextline++;
+	}
+  if(az_status[1] & 0x80) {
+	move(nextline,45);
+	printw("DC bus over-voltage");
+	nextline++;
+	}
+
+  if(az_status[2] & 0x1) {
+	move(nextline,45);
+	printw("Brake 1 failure");
+	nextline++;
+	}
+  if(az_status[2] & 0x2) {
+	move(nextline,45);
+	printw("Brake 2 failure");
+	nextline++;
+	}
+
+  if(az_status[3] & 0x1) {
+	move(nextline,45);
+	printw("Amplifier 1 failure");
+	nextline++;
+	}
+  if(az_status[3] & 0x2) {
+	move(nextline,45);
+	printw("Amplifier 2 failure");
+	nextline++;
+	}
+  if(az_status[4] & 0x1) {
+	move(nextline,45);
+	printw("Motor 1 over temp");
+	nextline++;
+	}
+  if(az_status[4] & 0x2) {
+	move(nextline,45);
+	printw("Motor 2 over temp");
+	nextline++;
+	}
+  if(az_status[4] & 0x10) {
+	move(nextline,45);
+	printw("Regeneration resistor over temp");
+	nextline++;
+	}
+  if(az_status[4] & 0x20) {
+	move(nextline,45);
+	printw("Servo oscillation");
+	nextline++;
+	}
+  if(az_status[6] & 0x1) {
+	move(nextline,45);
+	printw("AUX motor 1 off");
+	nextline++;
+	}
+  if(az_status[6] & 0x2) {
+	move(nextline,45);
+	printw("AUX motor 2 off");
+	nextline++;
+	}
+  if(az_status[7] & 0x1) {
+	move(nextline,45);
+	printw("Computer disabled");
+	nextline++;
+	}
+  if(az_status[7] & 0x2) {
+	move(nextline,45);
+	printw("Axis disabled");
+	nextline++;
+	}
+  if(az_status[7] & 0x4) {
+	move(nextline,45);
+	printw("Hand paddle in use");
+	nextline++;
+	}
+  if(az_status[7] & 0x8) {
+	move(nextline,45);
+	printw("Axis in stop");
+	nextline++;
+	}
+  if(az_status[7] & 0x10) {
+	move(nextline,45);
+	printw("Rocker in wrong position");
+	nextline++;
+	}
+
+  move(12,45);
+  addstr("EL status:");
+  nextline=13;
+
+  if(el_status[0]==0) {
+	move(12,56);
+	addstr("OK");
+	} else {
+	move(12,56);
+	addstr("  ");
+	}
+
+  if(el_status[0] & 0x1) {
+  	move(nextline,45);
+	printw("Prelimit up hit");
+	nextline++;
+	}
+  if(el_status[0] & 0x2) {
+	move(nextline,45);
+	printw("Prelimit down hit");
+	nextline++;
+	}
+  if(el_status[0] & 0x4) {
+	move(nextline,45);
+	printw("Limit up hit");
+	nextline++;
+	}
+  if(el_status[0] & 0x8) {
+	move(nextline,45);
+	printw("Limit down hit");
+	nextline++;
+	}
+  if(el_status[0] & 0x10) {
+	move(nextline,45);
+	printw("Emergency limit up ");
+	nextline++;
+	}
+  if(el_status[0] & 0x20) {
+	move(nextline,45);
+	printw("Emergency limit down ");
+	nextline++;
+	}
+
+  if(el_status[1] & 0x1) {
+	move(nextline,45);
+	printw("Servo failure");
+	nextline++;
+	}
+  if(el_status[1] & 0x2) {
+	move(nextline,45);
+	printw("Overspeed");
+	nextline++;
+	}
+  if(el_status[1] & 0x4) {
+	move(nextline,45);
+	printw("No motion");
+	nextline++;
+	}
+  if(el_status[1] & 0x8) {
+	move(nextline,45);
+	printw("Speed zero");
+	nextline++;
+	}
+  if(el_status[1] & 0x10) {
+	move(nextline,45);
+	printw("Stow position ");
+	nextline++;
+	}
+  if(el_status[1] & 0x20) {
+	move(nextline,45);
+	printw("Encoder failure");
+	nextline++;
+	}
+  if(el_status[1] & 0x40) {
+	move(nextline,45);
+	printw("Insane velocity feedback");
+	nextline++;
+	}
+  if(el_status[1] & 0x80) {
+	move(nextline,45);
+	printw("DC bus over-voltage");
+	nextline++;
+	}
+
+  if(el_status[2] & 0x1) {
+	move(nextline,45);
+	printw("Brake 1 failure");
+	nextline++;
+	}
+  if(el_status[2] & 0x2) {
+	move(nextline,45);
+	printw("Brake 2 failure");
+	nextline++;
+	}
+  if(el_status[2] & 0x4) {
+	move(nextline,45);
+	printw("Brake 3 failure");
+	nextline++;
+	}
+  if(el_status[2] & 0x8) {
+	move(nextline,45);
+	printw("Brake 4 failure");
+	nextline++;
+	}
+
+  if(el_status[3] & 0x1) {
+	move(nextline,45);
+	printw("Amplifier 1 failure");
+	nextline++;
+	}
+  if(el_status[3] & 0x2) {
+	move(nextline,45);
+	printw("Amplifier 2 failure");
+	nextline++;
+	}
+  if(el_status[3] & 0x4) {
+	move(nextline,45);
+	printw("Amplifier 3 failure");
+	nextline++;
+	}
+  if(el_status[3] & 0x8) {
+	move(nextline,45);
+	printw("Amplifier 4 failure");
+	nextline++;
+	}
+
+  if(el_status[4] & 0x1) {
+	move(nextline,45);
+	printw("Motor 1 over temp");
+	nextline++;
+	}
+  if(el_status[4] & 0x2) {
+	move(nextline,45);
+	printw("Motor 2 over temp");
+	nextline++;
+	}
+  if(el_status[4] & 0x4) {
+	move(nextline,45);
+	printw("Motor 3 over temp");
+	nextline++;
+	}
+  if(el_status[4] & 0x8) {
+	move(nextline,45);
+	printw("Motor 4 over temp");
+	nextline++;
+	}
+  if(el_status[4] & 0x10) {
+	move(nextline,45);
+	printw("Regeneration resistor over temp");
+	nextline++;
+	}
+  if(el_status[4] & 0x20) {
+	move(nextline,45);
+	printw("Servo oscillation");
+	nextline++;
+	}
+  if(el_status[6] & 0x1) {
+	move(nextline,45);
+	printw("AUX motor 1 off");
+	nextline++;
+	}
+  if(el_status[6] & 0x2) {
+	move(nextline,45);
+	printw("AUX motor 2 off");
+	nextline++;
+	}
+  if(el_status[6] & 0x4) {
+	move(nextline,45);
+	printw("AUX motor 3 off");
+	nextline++;
+	}
+  if(el_status[6] & 0x8) {
+	move(nextline,45);
+	printw("AUX motor 4 off");
+	nextline++;
+	}
+  if(el_status[7] & 0x1) {
+	move(nextline,45);
+	printw("Computer disabled");
+	nextline++;
+	}
+  if(el_status[7] & 0x2) {
+	move(nextline,45);
+	printw("Axis disabled");
+	nextline++;
+	}
+  if(el_status[7] & 0x4) {
+	move(nextline,45);
+	printw("Hand paddle in use");
+	nextline++;
+	}
+  if(el_status[7] & 0x8) {
+	move(nextline,45);
+	printw("Axis in stop");
+	nextline++;
+	}
+  if(el_status[7] & 0x10) {
+	move(nextline,45);
+	printw("Elevation above 90 deg");
+	nextline++;
+	}
+
+/* System Status */
+
+  move(17,45);
+  addstr("System status:");
+  nextline=19;
+
+  if(system_status[0] & 0x1) {
+	move(nextline,45);
+	printw("Safe Switch ON");
+	nextline++;
+	}
+  if(system_status[0] & 0x2) {
+	move(nextline,45);
+	printw("Power Failure");
+	nextline++;
+	}
+  if(system_status[0] & 0x4) {
+	move(nextline,45);
+	printw("24V failure");
+	nextline++;
+	}
+  if(system_status[0] & 0x8) {
+	move(nextline,45);
+	printw("Breaker failure");
+	nextline++;
+	}
+  if(system_status[0] & 0x10) {
+	move(nextline,45);
+	printw("ACU-PTC communication error");
+	nextline++;
+	}
+  if(system_status[0] & 0x20) {
+	move(nextline,45);
+	printw("ACU-PLC communication error");
+	nextline++;
+	}
+  if(system_status[0] & 0x40) {
+	move(nextline,45);
+	printw("Cabinet over-temperature");
+	nextline++;
+	}
+  if(system_status[0] & 0x80) {
+	move(nextline,45);
+	printw("Cabinet door open");
+	nextline++;
+	}
+  
+  if(system_status[1] & 0x1) {
+	move(nextline,45);
+	printw("Platform 2 handrails not lowered");
+	nextline++;
+	}
+  if(system_status[1] & 0x2) {
+	move(nextline,45);
+	printw("Ramp to receiver cabin not tilted up");
+	nextline++;
+	}
+  if(system_status[1] & 0x4) {
+	move(nextline,45);
+	printw("Hoist interlock");
+	nextline++;
+	}
+  if(system_status[1] & 0x8) {
+	move(nextline,45);
+	printw("Acces bar to platform 2 open");
+	nextline++;
+	}
+  if(system_status[1] & 0x10) {
+	move(nextline,45);
+	printw("Access door to platform 1 open");
+	nextline++;
+	}
+  if(system_status[1] & 0x20) {
+	move(nextline,45);
+	printw("Receiver cabin door open");
+	nextline++;
+	}
+  if(system_status[1] & 0x40) {
+	move(nextline,45);
+	printw("Timing pulse missing");
+	nextline++;
+	}
+  if(system_status[1] & 0x80) {
+	move(nextline,45);
+	printw(" ");
+	nextline++;
+	}
+  
+  if(system_status[2] & 0x1) {
+	move(nextline,45);
+	printw("E-stop: Cabinet (equipment rack)");
+	nextline++;
+	}
+  if(system_status[2] & 0x2) {
+	move(nextline,45);
+	printw("E-stop: Equipment rack");
+	nextline++;
+	}
+  if(system_status[2] & 0x4) {
+	move(nextline,45);
+	printw("E-stop: Antenna base");
+	nextline++;
+	}
+  if(system_status[2] & 0x8) {
+	move(nextline,45);
+	printw("E-stop: Platform 2");
+	nextline++;
+	}
+  if(system_status[2] & 0x10) {
+	move(nextline,45);
+	printw("E-stop: Stairway to platform 1");
+	nextline++;
+	}
+  if(system_status[2] & 0x10) {
+	move(nextline,45);
+	printw("E-stop: Receiver cabin");
+	nextline++;
+	}
+  
 refresh();
 }
 
