@@ -33,14 +33,11 @@ Only page (1) of above will be implemented for now!
 #include <unistd.h>
 #include <math.h>
 #include <sys/types.h>
-#ifdef LINUX
-  #include <sys/stat.h>
-  #include <unistd.h>
-#endif
+#include <sys/stat.h>
 #include <sys/file.h>
 #include <termio.h>
 #include <time.h>
-#include <curses.h>
+#include <ncurses.h>
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
@@ -56,13 +53,12 @@ Only page (1) of above will be implemented for now!
 #include "dsm.h"
 #include "monitor.h"
 #include "antMonitor.h"
-#include "stateCounts.h"
 
 enum {
 /* to add a page, insert a new name at the top and decrement the initializor */
 MESSAGE_DISPLAY,PMODEL_DISPLAY,          /* -5 */
 SMAINIT_DISPLAY,HELP_DISPLAY, /* -3 */
-SMASH_DISPLAY,STDERR_DISPLAY,ARRAY_DISPLAY,   /* 0 */
+SMASH_DISPLAY,STDERR_DISPLAY,METROLOGY_DISPLAY,RECEIVERS_DISPLAY,MASER_DISPLAY,HOME_DISPLAY,   /* 0 */
 ANTENNAPAGE_DISPLAY /* 1  (going up 10) */
 };
 
@@ -140,6 +136,9 @@ extern void messagePage(int count, int kind);
 extern int pmodelspage(int icount,int *antlist);
 extern void smainitMonitor(int count, int page);
 */
+extern void metrologyPage(int count);
+extern void receiversPage(int count);
+extern void maserPage(int count);
 
 /* on the wide 'a' page, this tells which window to start with in the
  * upper right corner */
@@ -161,12 +160,10 @@ void usage(char *a) {
 main(int argc, char *argv[])
 {
   int i;
-  int ant=ARRAY_DISPLAY; /* start up on the 'a' page */
+  int ant=HOME_DISPLAY; /* start up on the 'a' page */
   int cycle = FALSE;
   int delay = 1;
-#ifdef LINUX
   int spinCount = 0;
-#endif
   char *outputFile = NULL;
   struct utsname unamebuf;
   int rms;
@@ -194,46 +191,7 @@ main(int argc, char *argv[])
   sigactionInt = sigaction(SIGINT,&action, &old_action);
   
   uname(&unamebuf);
-#ifndef LINUX
-  if(strcmp(unamebuf.nodename,"hal9000")) {
-    printf("This program will run only on hal9000. Bye.\n");
-    exit(-1);
-  }
-#endif
-#if DEBUG
-  fprintf(stderr,"Finished opening RM\n");
-#endif
   i = 0;
-
-#if 0
-  while (antlist[i] != RM_ANT_LIST_END) {
-    antsAvailable[antlist[i]] = 1;
-    deadAntennas[antlist[i]] = 0;
-    i++;
-  }
-#endif 
-
- 
-#if 0
-  defaultTiltFlag[0]=0;
-   for(itilt=1;itilt<=8;itilt++) {
-   defaultTiltFlag[itilt]=0;
-   sprintf(mountModelFile,"/otherInstances/acc/%d/configFiles/pointingModel",itilt);
-   fpMountModel=fopen(mountModelFile,"r");
-      if(fpMountModel!=NULL) {
-         while(fgets(line,sizeof(line),fpMountModel) != NULL) {
-            line[strlen(line)-1]='\0';
-                if(line[0]!='#') {
-          sscanf(line,"%s %s %s", pointingParameter, opticalValue, radioValue);
-                     if(!strcmp(pointingParameter,"TiltFlag")) {
-                     defaultTiltFlag[itilt]=(int)atof(radioValue);
-                     }
-                }
-         }
-      }
-   fclose(fpMountModel);
-   }
-#endif
 
   rms = dsm_open();
   if(rms != DSM_SUCCESS) {
@@ -269,13 +227,11 @@ main(int argc, char *argv[])
   /* begin while loop every 1 second */
 
 	initialize();
+	ant=HOME_DISPLAY;
 
   while (1) {
     time_t lastKeystrokeTime, curTime;
 
-#ifndef LINUX
-    yield();
-#endif
     ioctl(0, TCSETA,&tin);
     
     icount++;
@@ -303,18 +259,46 @@ main(int argc, char *argv[])
       exit(0);
       break;
 
+     case 'm':
+     ant = METROLOGY_DISPLAY;
+     icount = 1;
+     break;
+
+     case 'r':
+     ant = RECEIVERS_DISPLAY;
+     icount = 1;
+     break;
+
+     case 'M':
+     ant = MASER_DISPLAY;
+     icount = 1;
+     break;
+
+     case 'a':
+     ant = HOME_DISPLAY;
+     icount = 0;
+     break;
+
+     case 'h':
+     ant = HELP_DISPLAY;
+printw("got help key");
+     icount = 0;
+     break;
+
     }			/* end of switch */
 
-	ant=1;
+    if (ant == HOME_DISPLAY) {
           antDisplay(ant, icount);
-#ifndef LINUX
+          } else if (ant == HELP_DISPLAY) {
+          help(icount);
+          } else if (ant == METROLOGY_DISPLAY) {
+          metrologyPage(icount);
+          } else if (ant == RECEIVERS_DISPLAY) {
+          receiversPage(icount);
+          } else if (ant == MASER_DISPLAY) {
+          maserPage(icount);
+          }
 	sleep(delay);
-#else
-	usleep(delay*500000);
-	spinCount++;
-	if ((spinCount % 2) && ((icount % 30) > 1))
-	  icount--;
-#endif
   }				/* this is the big while loop */
   ioctl(0, TCSETA, &tio);
 }				/* end of main Loop */
@@ -380,13 +364,11 @@ void initialize() {
   int numberAntennas;
 
   initscr();
-#ifdef LINUX
   if(colorFlag) {
 	start_color();
   }
   nonl();
   clear();
-#endif
    /* LINES and COLS are now defined */
   if (COLS > 132)
     COLS = 132;
@@ -410,10 +392,13 @@ void initialize() {
   box(stdscr, '|','-');
   */
 
+/* draw outline */
+/*
   for (i = 1; i < COLS-1; i++) {move(0,i);printw("-");}
-  for (i = 1; i < COLS-1; i++) {move(23,i);printw("-");}
+  for (i = 1; i < COLS-1; i++) {move(80,i);printw("-");}
   for (i = 1; i < 23; i++) {move(i,0);printw("|");}
   for (i = 1; i < 23; i++) {move(i,COLS-1);printw("|");}
+*/
 #if 0
   move(0,0);
   printw("COLS=%d",COLS);
@@ -425,9 +410,6 @@ void goto80WidthAndExit(int value) {
   goto80width();
   exit(value);
 }
-
-#define LYNX_FINGER  0
-#define LINUX_FINGER 1
 
 int present(char *a, char *b) {
   if (strstr(a,b) == NULL) {

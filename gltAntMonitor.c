@@ -27,6 +27,8 @@ NAP 27 June 2012: added ACU monitor points as written by Servo
   #define movemacro(x,y) move(x,y)
 #endif
 
+#define REFRESH_INTERVAL 3
+
 void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 	double *ra_disp,double *dec_disp, 
 	double *ra_cat_disp, double *dec_cat_disp,
@@ -34,7 +36,16 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 	double *az_actual_corrected,double *el_actual_disp,
 	double *az_error, double *el_error, char *messg,
 	float *refraction, float *pmdaz, float *pmdel,
-	int *radio_flag, double *Az_cmd, double *El_cmd, char *lastcommand);
+	int *radio_flag, double *Az_cmd, double *El_cmd, char *lastcommand,
+        char *azServoStatus, char *elServoStatus,
+        short *acuModeAz,short *acuModeEl,char *acuSystemGS,
+        int *acuDay,int *acuHour, char *acuErrorMessage,
+        float *temperature,float *pressure,float *humidity,float *windspeed,
+        double *windchill,double *dftemp,
+        float *winddir,float *tau,float *tsysAmbLeft,float *tsysAmbRight,
+        float *tsysAtmLeft, float *tsysAtmRight, float *polar_dut_f,
+        short *azm1t,short *azm2t,short *elm1t,short *elm2t,short *elm3t,short *elm4t,
+        float *azm1i,float *azm2i,float *elm1i,float *elm2i,float *elm3i,float *elm4i);
 
 int antDisplay(int ant, int icount) {
   char dummyByte;
@@ -64,6 +75,37 @@ int antDisplay(int ant, int icount) {
   time_t timestamp;
   short disableDrivesFlag;
 
+ /* ACU status variables from DSM*/
+  short acuModeAz,acuModeEl;
+  char azServoStatus[2],elServoStatus[2];
+  int acuDay,acuHour;
+  char acuErrorMessage[256],acuSystemGS[6];
+
+ /* weather variables from DSM */
+  float temperature,pressure,humidity,windspeed,winddir;
+  double tamb,tambk,ws,wsp,windchill,dftemp;
+  double numSum,denSum,lne_s;
+
+/* radiometer variables (only tau for now) */
+  float tau;
+
+/* tsys */
+  float tsysAmbLeft,tsysAmbRight,tsysAtmLeft,tsysAtmRight;
+
+  float polar_dut_f;
+     short azm1t,azm2t,elm1t,elm2t,elm3t,elm4t;
+     float azm1i,azm2i,elm1i,elm2i,elm3i,elm4i;
+
+
+/*
+printf("Time: %d\n",acuStatusResp.timeOfDay);
+  hours = acuStatusResp.timeOfDay/3600000.;
+  hh = (int)hours;
+  minutes = (hours-hh)*60.;
+  mm = (int) minutes;
+  seconds = (minutes-mm)*60.;
+  printf ("ACU Time: (day, hh:mm:ss.sss):  %d %02d:%02d:%02.3f\n",acuStatusResp.dayOfYear,hh,mm,seconds);
+*/
 
           rms=call_dsm_read(DSM_HOST,"DSM_AZOFF_ARCSEC_D",&azoff,&timestamp);	
 	  rms=call_dsm_read(DSM_HOST,"DSM_ELOFF_ARCSEC_D",&eloff,&timestamp);	
@@ -73,15 +115,11 @@ int antDisplay(int ant, int icount) {
 	  rms=call_dsm_read(DSM_HOST,"DSM_REFRACTION_RADIO_FLAG_B",&dummyByte,&timestamp);
 	  radio_flag=(int)dummyByte; 
 	  
-	  rms=call_dsm_read(DSM_HOST,"DSM_COMMANDED_AZ_DEG_F",&dummyFloat,&timestamp);
-	  az_disp=(double)dummyFloat;
-	  rms=call_dsm_read(DSM_HOST,"DSM_COMMANDED_EL_DEG_F",&dummyFloat,&timestamp);
-	  el_disp=(double)dummyFloat;
+	  rms=call_dsm_read(DSM_HOST,"DSM_CMDDISP_AZ_DEG_D",&dummyDouble,&timestamp);
+	  az_disp=(double)dummyDouble;
+	  rms=call_dsm_read(DSM_HOST,"DSM_CMDDISP_EL_DEG_D",&dummyDouble,&timestamp);
+	  el_disp=(double)dummyDouble;
 	  rms=call_dsm_read(DSM_HOST, "DSM_AZ_TRACKING_ERROR_F",&dummyFloat,&timestamp);
-          if(rms != DSM_SUCCESS) {
-           dsm_error_message(rms,"dsm_write(DSM_AZ_TRACKING_ERROR_F)");
-                }
-
 	  az_error=(double)dummyFloat;
 	  rms=call_dsm_read(DSM_HOST, "DSM_EL_TRACKING_ERROR_F",&dummyFloat,&timestamp);
 	  el_error=(double)dummyFloat;
@@ -99,20 +137,77 @@ int antDisplay(int ant, int icount) {
 	  ra_cat_disp=(double)dummyFloat;
 	  rms=call_dsm_read(DSM_HOST,"DSM_DEC_CAT_DEG_F",&dummyFloat,&timestamp);
 	  dec_cat_disp=(double)dummyFloat;
-	  rms=call_dsm_read(DSM_HOST,"DSM_ACTUAL_AZ_DEG_F",&dummyFloat,&timestamp);
-	  az_actual_corrected=(double)dummyFloat;
-	  rms=call_dsm_read(DSM_HOST,"DSM_ACTUAL_EL_DEG_F",&dummyFloat,&timestamp);
-	  el_actual_disp=(double)dummyFloat;
+	  rms=call_dsm_read(DSM_HOST,"DSM_ACTUAL_AZ_DEG_D",&az_actual_corrected,&timestamp);
+          if (rms!=DSM_SUCCESS) printf("dsm_read error: DSM_ACTUAL_AZ_DEG_D, return code=%d\n",rms);
+	  rms=call_dsm_read(DSM_HOST,"DSM_ACTUAL_EL_DEG_D",&el_actual_disp,&timestamp);
+          if (rms!=DSM_SUCCESS) printf("dsm_read error: DSM_ACTUAL_EL_DEG_D, return code=%d\n",rms);
 	  rms=call_dsm_read(DSM_HOST,"DSM_PMDAZ_F",&pmdaz,&timestamp);
 	  rms=call_dsm_read(DSM_HOST,"DSM_PMDEL_F",&pmdel,&timestamp);
 	  rms=call_dsm_read(DSM_HOST,"DSM_TRACK_MESSAGE_C100",messg,&timestamp);
 	  rms=call_dsm_read(DSM_HOST,"DSM_TRACK_LAST_COMMAND_C100",lastcommand,&timestamp);
 
-	  rms=call_dsm_read(DSM_HOST,"DSM_COMMANDED_AZ_DEG_F",&dummyFloat,&timestamp);
+/*
+	  rms=call_dsm_read(DSM_HOST,"DSM_COMMANDED_AZ_DEG_D",&dummyFloat,&timestamp);
 	  Az_cmd=(double)dummyFloat;
-	  rms=call_dsm_read(DSM_HOST,"DSM_COMMANDED_EL_DEG_F",&dummyFloat,&timestamp);
+	  rms=call_dsm_read(DSM_HOST,"DSM_COMMANDED_EL_DEG_D",&dummyFloat,&timestamp);
 	  El_cmd=(double)dummyFloat;
+*/
 
+  rms = dsm_read(DSM_HOST,"DSM_ACU_SERVO_STATUS_AZ_C2",azServoStatus,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_ACU_SERVO_STATUS_EL_C2",elServoStatus,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_ACU_MODE_STATUS_AZ_S",&acuModeAz,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_ACU_MODE_STATUS_EL_S",&acuModeEl,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_ACU_SYSTEMGS_C6",acuSystemGS,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_ACU_DAYOFYEAR_L",&acuDay,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_ACU_HOUR_L",&acuHour,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_WEATHER_TEMP_C_F",&temperature,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_WEATHER_PRESS_MBAR_F",&pressure,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_WEATHER_HUMIDITY_F",&humidity,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_WEATHER_WINDSPEED_MPS_F",&windspeed,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_WEATHER_WINDDIR_AZDEG_F",&winddir,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_RADIOMETER_TAU_F",&tau,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_TSYS_AMB_LEFT_F",&tsysAmbLeft,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_TSYS_AMB_RIGHT_F",&tsysAmbRight,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_TSYS_ATM_LEFT_F",&tsysAtmLeft,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_TSYS_ATM_RIGHT_F",&tsysAtmRight,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_POLAR_DUT_SECONDS_F", &polar_dut_f,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_AZ_MOTOR1_TEMP_S",&azm1t,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_AZ_MOTOR2_TEMP_S",&azm2t,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_EL_MOTOR1_TEMP_S",&elm1t,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_EL_MOTOR2_TEMP_S",&elm2t,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_EL_MOTOR3_TEMP_S",&elm3t,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_EL_MOTOR4_TEMP_S",&elm4t,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_AZ_MOTOR1_CURRENT_F",&azm1i,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_AZ_MOTOR2_CURRENT_F",&azm2i,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_EL_MOTOR1_CURRENT_F",&elm1i,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_EL_MOTOR2_CURRENT_F",&elm2i,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_EL_MOTOR3_CURRENT_F",&elm3i,&timestamp);
+  rms = dsm_read(DSM_HOST,"DSM_EL_MOTOR4_CURRENT_F",&elm4i,&timestamp);
+
+/* calculating Wind Chill (p372 of Vaisala AWS310 user guide) */
+  tamb = (double)temperature;
+  ws = (double)windspeed;
+  wsp = pow(ws,0.16);
+  windchill = 13.13 + 0.62*tamb
+                    - 13.95*wsp
+                    + 0.486*tamb*wsp;
+
+/* calculating dew or frost point temperature */
+/* formulae and constants are from Bob Hardy, Thunder Scientific Corp.
+report: ITS-90 Formulations for vapor pressure, frostpoint temp., dewpoint temp. */
+tambk=tamb+273.15;
+if (tamb <= 0.) {
+lne_s =  0.67063522*log(tambk)-5.866426e3/tambk +22.3870244+1.39387003e-2*tambk-
+3.4262402e-5*pow(tambk,2.)+2.7040955e-8*pow(tambk,3.);
+numSum=2.1257969e2-10.264612*lne_s+1.4354796e-1*lne_s*lne_s;
+denSum=1.0-8.2871619e-2*lne_s+2.3540411e-3*lne_s*lne_s-2.4363951e-5*pow(lne_s,3.0);
+} else {
+lne_s = 2.7150305 * log(tambk) - 2836.5744* pow(tambk,-2.) -6028.076559* pow(tambk,-1.)+ 19.54263612 - 0.02737830188 * tambk +1.6261698e-5* pow(tambk,2.0)+
+7.0229056e-10*pow(tambk,3.0)-1.8680009e-13*pow(tambk,4.0);
+numSum=2.0798233e2-2.0156028*lne_s+4.6778925e-1*pow(lne_s,2.)-9.2288067e-6*pow(lne_s,3.0);
+denSum=1.0-1.3319669e-1*lne_s+5.6577518e-3*lne_s*lne_s-7.5172865e-5*pow(lne_s,3.);
+}
+dftemp=(numSum/denSum)-273.15;
 
 	  screen(source, &lst_disp, &utc_disp, &tjd_disp, &ra_disp, &dec_disp,
 		 &ra_cat_disp, &dec_cat_disp,
@@ -122,7 +217,14 @@ int antDisplay(int ant, int icount) {
 		 &refraction, 
 		 &pmdaz, &pmdel, 
 		 &radio_flag,
-		 &Az_cmd,&El_cmd,lastcommand);
+		 &Az_cmd,&El_cmd,lastcommand,azServoStatus,elServoStatus,
+                 &acuModeAz,&acuModeEl,acuSystemGS,&acuDay,&acuHour,
+                 acuErrorMessage,&temperature,&pressure,&humidity,
+                 &windspeed,&windchill,&dftemp,&winddir,&tau,
+                 &tsysAmbLeft,&tsysAmbRight,
+                 &tsysAtmLeft,&tsysAtmRight,&polar_dut_f,
+                 &azm1t,&azm2t,&elm1t,&elm2t,&elm3t,&elm4t,
+                 &azm1i,&azm2i,&elm1i,&elm2i,&elm3i,&elm4i);
 /*
 printf("%s %f %f %f %f %f\n",source,lst_disp, utc_disp,tjd_disp,ra_disp,dec_disp);
 printf("%f %f %f %f %d\n",ra_cat_disp,dec_cat_disp,az_disp,el_disp,icount);
@@ -139,13 +241,21 @@ void af(int *i,char s[2]);
 void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 	double *ra_disp,double *dec_disp, 
 	double *ra_cat_disp, double *dec_cat_disp,
-	double *az_disp,
-	double *el_disp,int *icount,double *azoff,double *eloff,
+	double *az_disp, double *el_disp,int *icount,double *azoff,double *eloff,
 	double *az_actual_corrected,double *el_actual_disp,
 	double *az_error, double *el_error, char *messg,
 	float *refraction, float *pmdaz, float *pmdel,
-	int *radio_flag, double *Az_cmd, 
-	double *El_cmd, char *lastcommand)
+	int *radio_flag, double *Az_cmd, double *El_cmd, char *lastcommand,
+        char *azServoStatus, char *elServoStatus,
+        short *acuModeAz,short *acuModeEl,char *acuSystemGS,
+        int *acuDay,int *acuHour, char *acuErrorMessage,
+        float *temperature, float *pressure, float *humidity,
+        float *windspeed, double *windchill, double *dftemp,float *winddir,
+        float *tau,
+        float *tsysAmbLeft, float *tsysAmbRight, float *tsysAtmLeft,
+        float *tsysAtmRight, float *polar_dut_f,
+        short *azm1t,short *azm2t,short *elm1t,short *elm2t,short *elm3t,short *elm4t,
+        float *azm1i,float *azm2i,float *elm1i,float *elm2i,float *elm3i,float *elm4i)
 {
   short az_act_sign,az_sign,el_sign,dec_dum_sign,dec_app_sign,dec_cat_sign;
   char str[3];
@@ -183,9 +293,17 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 
   int nextline;
 
+  int acuH,acuM;
+  double acuS,acuTime;
+  short acuTimesign;
+
+
+  start_color();
+  init_pair(1,COLOR_RED,COLOR_BLACK); /*red on black */
+
   ha=*lst_disp-*ra_disp;
 
-  if((*icount%30)==0) {
+  if((*icount%REFRESH_INTERVAL)==0) {
     initialize();
   }
   hms(ra_disp,&ra_app_h,&ra_app_m,&ra_app_s,&dec_dum_sign);
@@ -199,6 +317,9 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   hms(az_actual_corrected,&az_act_d,&az_act_m,&az_act_s,&az_act_sign);
   hms(el_actual_disp,&el_act_d,&el_act_m,&el_act_s,&dec_dum_sign);
   
+
+  acuTime = (double)*acuHour/3600000.;
+  hms(&acuTime,&acuH,&acuM,&acuS,&acuTimesign); 
   
   
   lstsi=(int)lsts;
@@ -208,7 +329,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   az_act_si=(int)az_act_s;
   el_act_si=(int)el_act_s;
   
-  /* box(stdscr, '|','-'); */
+  box(stdscr, '|','-'); 
   
 /*
   dsm_read(host,"DSM_ESTOP_BYPASS_L",(char *)&estopBypass, &timestamp);
@@ -304,6 +425,10 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 #if DEBUG
   refresh();
 #endif  
+
+  movemacro(6,20);
+  printw("dUT: ");
+  printw("%.3f",*polar_dut_f);
 #if DEBUG
   refresh();
 #endif  
@@ -634,9 +759,9 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 #if DEBUG
   refresh();
 #endif  
-  move(18,2);
+  move(17,2);
   addstr("REFRACTION:");
-  move(18,13);
+  move(17,13);
 #if DEBUG
   refresh();
 #endif  
@@ -667,38 +792,59 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 */
 #endif
 
-  move(20,2);
+  move(18,2);
   addstr("Message:");
-  move(20,13);
+  move(18,13);
   printw("%s",messg);
 
-  move(22,2);
+  move(19,2);
   addstr("Last cmd:");
-  move(22,13);
+  move(19,13);
   printw("%s",lastcommand);
+
+  move(20,2);
+  addstr("ACU error msg:");
+  move(20,13);
+  printw("%s",acuErrorMessage);
+
+/* displaying weather */
+  move(2,45);
+  printw("%.1f C", *temperature);
+  move(5,45);
+  printw("%.1f mbar", *pressure);
+  move(6,45);
+  printw("%.1f %%", *humidity);
+  move(2,55);
+  printw("%.1f m/s", *windspeed);
+  move(2,65);
+  printw("%.1f deg", *winddir);
+  move(6,58);
+  printw("Tau: %.2f ", *tau);
+
+
+  move(3,45);
+  if(*windchill<=-45.) attron(COLOR_PAIR(1));
+  printw("%.1f C (wind chill)",*windchill);
+  if(*windchill<=-45.) attroff(COLOR_PAIR(1));
+
+  move(4,45);
+  if(*temperature<=0.) printw("%.1f C (frostpoint)",*dftemp);
+  if(*temperature>0.) printw("%.1f C (dewpoint)",*dftemp);
 
 /* displaying ACU messages */
 
-/* reading ACU variables written by dsmsubs.c via servo */
+  move(7,45);
+  addstr("ACU time:");
+  move(7,55);
+  printw("%d", *acuDay);
+  move(7,60);
+  printw("%02d", acuH);
+  move(7,63);
+  printw("%02d", acuM);
+  move(7,66);
+  printw("%04.2f", acuS);
 
-  dsm_read(DSM_HOST,"DSM_ACU_ERROR_B",&acu_error, &timestamp);
-  dsm_read(DSM_HOST,"DSM_AZ_BRAKE_B",&az_brake, &timestamp);
-  dsm_read(DSM_HOST,"DSM_EL_BRAKE_B",&el_brake, &timestamp);
-  dsm_read(DSM_HOST,"DSM_AZ_STATUS_V8_B",az_status, &timestamp);
-  dsm_read(DSM_HOST,"DSM_EL_STATUS_V8_B",el_status, &timestamp);
-  dsm_read(DSM_HOST,"DSM_STOW_PIN_V2_B",stow_pin, &timestamp);
-  dsm_read(DSM_HOST,"DSM_SYSTEM_STATUS_V3_B",system_status, &timestamp);
-
-
-/* Brakes and Stow pins */
-
-  move(2,60);
-  addstr("AZ");
-  move(2,68);
-  addstr("EL");
-  move(4,45);
-  addstr("Brakes:");
-  
+ /* 
   if(az_brake==0x00){
   move(4,60);
   printw("OFF");
@@ -718,7 +864,9 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   move(4,67);
   printw("ON");
   }
+*/
 
+/*
   move(5,45);
   addstr("Stow-pins:");
 
@@ -741,507 +889,395 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   move(5,67);
   printw("OUT");
   }
+*/
+
+/* tsys */
+  move(8,45);
+  addstr("Tsys (amb) L/R:");
+  move(8,60);
+  printw("%.1f %.1f K", *tsysAmbLeft,*tsysAmbRight);
+  move(9,45);
+  addstr("Tsys (atm) L/R:");
+  move(9,60);
+  printw("%.1f %.1f K", *tsysAtmLeft,*tsysAtmRight);
 
 /* Az status */
 
-  move(7,45);
-  addstr("AZ status:");
-  nextline=8;
+  move(13,45);
+  addstr("AZ mode: ");
+/*
+  printw("0x%x",*acuModeAz);
+*/
+  
+  nextline=15;
 
-  if(az_status[0]==0) {
-	move(7,56);
-	addstr("OK");
-	} else {
-	move(7,56);
-	addstr("  ");
-	}
-
-  if(az_status[0] & 0x1) {
   	move(nextline,45);
-	printw("Prelimit cw hit");
-	nextline++;
-	}
-  if(az_status[0] & 0x2) {
-	move(nextline,45);
-	printw("Prelimit ccw hit");
-	nextline++;
-	}
-  if(az_status[0] & 0x4) {
-	move(nextline,45);
-	printw("Limit cw hit");
-	nextline++;
-	}
-  if(az_status[0] & 0x8) {
-	move(nextline,45);
-	printw("Limit ccw hit");
-	nextline++;
-	}
-  if(az_status[0] & 0x10) {
-	move(nextline,45);
-	printw("Emergency limit cw ");
-	nextline++;
-	}
-  if(az_status[0] & 0x20) {
-	move(nextline,45);
-	printw("Emergency limit ccw ");
-	nextline++;
-	}
-  if(az_status[0] & 0x40) {
-	move(nextline,45);
-	printw("2nd Emergency limit cw ");
-	nextline++;
-	}
-  if(az_status[0] & 0x80) {
-	move(nextline,45);
-	printw("2nd Emergency limit ccw ");
-	nextline++;
-	}
+        if(*acuModeAz==0x1) addstr("Stop");
+        if(*acuModeAz==0x21) addstr("Maintenance");
+        if(*acuModeAz==0x22) addstr("Self Test");
+        if(*acuModeAz==0x2) addstr("Preset");
+        if(*acuModeAz==0x3) addstr("Program Track");
+        if(*acuModeAz==0x4) addstr("Rate");
+        if(*acuModeAz==0x5) addstr("Sector Scan");
+        if(*acuModeAz==0x6) addstr("Survival Position (stow)");
+        if(*acuModeAz==0xe) addstr("Maintenance Position (stow)");
+        if(*acuModeAz==0x4e) addstr("Az Stow (pins not retracted)");
+        if(*acuModeAz==0x26) addstr("Az unstow");
+        if(*acuModeAz==0x8) addstr("Az Two line track ");
+        if(*acuModeAz==0x9) addstr("Az Star Track ");
+        if(*acuModeAz==0x29) addstr("Az Sun Track ");
 
-  if(az_status[1] & 0x1) {
-	move(nextline,45);
-	printw("Servo failure");
-	nextline++;
-	}
+  move(19,45);
+  addstr("EL mode: ");
+/*
+  printw("0x%x",*acuModeEl);
+*/
+  nextline=20;
 
-  if(az_status[1] & 0x1) {
-	move(nextline,45);
-	printw("Servo failure");
-	nextline++;
-	}
-  if(az_status[1] & 0x2) {
-	move(nextline,45);
-	printw("Overspeed");
-	nextline++;
-	}
-  if(az_status[1] & 0x4) {
-	move(nextline,45);
-	printw("No motion");
-	nextline++;
-	}
-  if(az_status[1] & 0x8) {
-	move(nextline,45);
-	printw("Speed zero");
-	nextline++;
-	}
-  if(az_status[1] & 0x10) {
-	move(nextline,45);
-	printw("Stow position ");
-	nextline++;
-	}
-  if(az_status[1] & 0x20) {
-	move(nextline,45);
-	printw("Encoder failure");
-	nextline++;
-	}
-  if(az_status[1] & 0x40) {
-	move(nextline,45);
-	printw("Insane velocity feedback");
-	nextline++;
-	}
-  if(az_status[1] & 0x80) {
-	move(nextline,45);
-	printw("DC bus over-voltage");
-	nextline++;
-	}
-
-  if(az_status[2] & 0x1) {
-	move(nextline,45);
-	printw("Brake 1 failure");
-	nextline++;
-	}
-  if(az_status[2] & 0x2) {
-	move(nextline,45);
-	printw("Brake 2 failure");
-	nextline++;
-	}
-
-  if(az_status[3] & 0x1) {
-	move(nextline,45);
-	printw("Amplifier 1 failure");
-	nextline++;
-	}
-  if(az_status[3] & 0x2) {
-	move(nextline,45);
-	printw("Amplifier 2 failure");
-	nextline++;
-	}
-  if(az_status[4] & 0x1) {
-	move(nextline,45);
-	printw("Motor 1 over temp");
-	nextline++;
-	}
-  if(az_status[4] & 0x2) {
-	move(nextline,45);
-	printw("Motor 2 over temp");
-	nextline++;
-	}
-  if(az_status[4] & 0x10) {
-	move(nextline,45);
-	printw("Regeneration resistor over temp");
-	nextline++;
-	}
-  if(az_status[4] & 0x20) {
-	move(nextline,45);
-	printw("Servo oscillation");
-	nextline++;
-	}
-  if(az_status[6] & 0x1) {
-	move(nextline,45);
-	printw("AUX motor 1 off");
-	nextline++;
-	}
-  if(az_status[6] & 0x2) {
-	move(nextline,45);
-	printw("AUX motor 2 off");
-	nextline++;
-	}
-  if(az_status[7] & 0x1) {
-	move(nextline,45);
-	printw("Computer disabled");
-	nextline++;
-	}
-  if(az_status[7] & 0x2) {
-	move(nextline,45);
-	printw("Axis disabled");
-	nextline++;
-	}
-  if(az_status[7] & 0x4) {
-	move(nextline,45);
-	printw("Hand paddle in use");
-	nextline++;
-	}
-  if(az_status[7] & 0x8) {
-	move(nextline,45);
-	printw("Axis in stop");
-	nextline++;
-	}
-  if(az_status[7] & 0x10) {
-	move(nextline,45);
-	printw("Rocker in wrong position");
-	nextline++;
-	}
-
-  move(12,45);
-  addstr("EL status:");
-  nextline=13;
-
-  if(el_status[0]==0) {
-	move(12,56);
-	addstr("OK");
-	} else {
-	move(12,56);
-	addstr("  ");
-	}
-
-  if(el_status[0] & 0x1) {
   	move(nextline,45);
-	printw("Prelimit up hit");
-	nextline++;
-	}
-  if(el_status[0] & 0x2) {
-	move(nextline,45);
-	printw("Prelimit down hit");
-	nextline++;
-	}
-  if(el_status[0] & 0x4) {
-	move(nextline,45);
-	printw("Limit up hit");
-	nextline++;
-	}
-  if(el_status[0] & 0x8) {
-	move(nextline,45);
-	printw("Limit down hit");
-	nextline++;
-	}
-  if(el_status[0] & 0x10) {
-	move(nextline,45);
-	printw("Emergency limit up ");
-	nextline++;
-	}
-  if(el_status[0] & 0x20) {
-	move(nextline,45);
-	printw("Emergency limit down ");
-	nextline++;
-	}
+        if(*acuModeEl==0x1) addstr("Stop");
+        if(*acuModeEl==0x21) addstr("Maintenance");
+        if(*acuModeEl==0x22) addstr("Self Test");
+        if(*acuModeEl==0x2) addstr("Preset");
+        if(*acuModeEl==0x3) addstr("Program Track");
+        if(*acuModeEl==0x4) addstr("Rate");
+        if(*acuModeEl==0x5) addstr("Sector Scan");
+        if(*acuModeEl==0x6) addstr("Survival Position (stow)");
+        if(*acuModeEl==0xe) addstr("Maintenance Position (stow)");
+        if(*acuModeEl==0x4e) addstr("Stow (pins not retracted)");
+        if(*acuModeEl==0x26) addstr("unstow");
+        if(*acuModeEl==0x8) addstr("Two line track ");
+        if(*acuModeEl==0x9) addstr("Star Track ");
+        if(*acuModeEl==0x29) addstr("Sun Track ");
 
-  if(el_status[1] & 0x1) {
-	move(nextline,45);
-	printw("Servo failure");
-	nextline++;
-	}
-  if(el_status[1] & 0x2) {
-	move(nextline,45);
-	printw("Overspeed");
-	nextline++;
-	}
-  if(el_status[1] & 0x4) {
-	move(nextline,45);
-	printw("No motion");
-	nextline++;
-	}
-  if(el_status[1] & 0x8) {
-	move(nextline,45);
-	printw("Speed zero");
-	nextline++;
-	}
-  if(el_status[1] & 0x10) {
-	move(nextline,45);
-	printw("Stow position ");
-	nextline++;
-	}
-  if(el_status[1] & 0x20) {
-	move(nextline,45);
-	printw("Encoder failure");
-	nextline++;
-	}
-  if(el_status[1] & 0x40) {
-	move(nextline,45);
-	printw("Insane velocity feedback");
-	nextline++;
-	}
-  if(el_status[1] & 0x80) {
-	move(nextline,45);
-	printw("DC bus over-voltage");
-	nextline++;
-	}
+  move(23,45);
+   addstr("Motor currents (A):");
+  move(24,45);
+   printw("az1: %.2f az2: %.2f",*azm1i,*azm2i);
+  move(25,45);
+   printw("el1: %.2f el2: %.2f",*elm1i,*elm2i);
+  move(26,45);
+   printw("el3: %.2f el4: %.2f",*elm3i,*elm4i);
 
-  if(el_status[2] & 0x1) {
-	move(nextline,45);
-	printw("Brake 1 failure");
-	nextline++;
-	}
-  if(el_status[2] & 0x2) {
-	move(nextline,45);
-	printw("Brake 2 failure");
-	nextline++;
-	}
-  if(el_status[2] & 0x4) {
-	move(nextline,45);
-	printw("Brake 3 failure");
-	nextline++;
-	}
-  if(el_status[2] & 0x8) {
-	move(nextline,45);
-	printw("Brake 4 failure");
-	nextline++;
-	}
+  move(28,45);
+  addstr("Az Servo Status: ");
+  move(29,45);
+  addstr("---------------- ");
+  move(30,45);
+/*
+  printw("0x%x 0x%x",(unsigned char) azServoStatus[0],(unsigned char) azServoStatus[1]);
+*/
+  nextline=31;
 
-  if(el_status[3] & 0x1) {
+        if(azServoStatus[0]&1) {
 	move(nextline,45);
-	printw("Amplifier 1 failure");
-	nextline++;
-	}
-  if(el_status[3] & 0x2) {
+        addstr("Emergency limit");
+        nextline++;
+        }
+        if(azServoStatus[0]&2) {
 	move(nextline,45);
-	printw("Amplifier 2 failure");
-	nextline++;
-	}
-  if(el_status[3] & 0x4) {
+        addstr("Operating limit ccw");
+        nextline++;
+        }
+        if(azServoStatus[0]&4) {
 	move(nextline,45);
-	printw("Amplifier 3 failure");
-	nextline++;
-	}
-  if(el_status[3] & 0x8) {
+        addstr("Operating limit cw");
+        nextline++;
+        }
+        if(azServoStatus[0]&8) {
 	move(nextline,45);
-	printw("Amplifier 4 failure");
-	nextline++;
-	}
+        addstr("Prelimit ccw");
+        nextline++;
+        }
+        if(azServoStatus[0]&16) {
+	move(nextline,45);
+        addstr("Prelimit cw");
+        nextline++;
+        }
+        if(azServoStatus[0]&32) {
+	move(nextline,45);
+        addstr("stow position");
+        nextline++;
+        }
+        if(azServoStatus[0]&64) {
+	move(nextline,45);
+        addstr("stow pin inserted");
+        nextline++;
+        }
+        if(azServoStatus[0]&128) {
+	move(nextline,45);
+        addstr("stow pin retracted");
+        nextline++;
+        }
 
-  if(el_status[4] & 0x1) {
+        if(azServoStatus[1]&1) {
 	move(nextline,45);
-	printw("Motor 1 over temp");
-	nextline++;
-	}
-  if(el_status[4] & 0x2) {
+        addstr("Servo failure");
+        nextline++;
+        }
+        if(azServoStatus[1]&2) {
 	move(nextline,45);
-	printw("Motor 2 over temp");
-	nextline++;
-	}
-  if(el_status[4] & 0x4) {
+        addstr("Brake failure");
+        nextline++;
+        }
+        if(azServoStatus[1]&4) {
 	move(nextline,45);
-	printw("Motor 3 over temp");
-	nextline++;
-	}
-  if(el_status[4] & 0x8) {
+        addstr("Encoder failure");
+        nextline++;
+        }
+        if(azServoStatus[1]&8) {
 	move(nextline,45);
-	printw("Motor 4 over temp");
-	nextline++;
-	}
-  if(el_status[4] & 0x10) {
+        addstr("Auxiliary mode ");
+        nextline++;
+        }
+        if(azServoStatus[1]&16) {
 	move(nextline,45);
-	printw("Regeneration resistor over temp");
-	nextline++;
-	}
-  if(el_status[4] & 0x20) {
+        addstr("Motion failure");
+        nextline++;
+        }
+        if(azServoStatus[1]&32) {
 	move(nextline,45);
-	printw("Servo oscillation");
-	nextline++;
-	}
-  if(el_status[6] & 0x1) {
+        addstr("CAN bus failure");
+        nextline++;
+        }
+        if(azServoStatus[1]&64) {
 	move(nextline,45);
-	printw("AUX motor 1 off");
-	nextline++;
-	}
-  if(el_status[6] & 0x2) {
+        addstr("Axis disabled");
+        nextline++;
+        }
+        if(azServoStatus[1]&128) {
 	move(nextline,45);
-	printw("AUX motor 2 off");
-	nextline++;
-	}
-  if(el_status[6] & 0x4) {
+        addstr("Local mode");
+        nextline++;
+        }
+
+  nextline=nextline+3;
+  move(nextline,45);
+  addstr("El Servo Status:");
+  nextline++;
+  move(nextline,45);
+  addstr("----------------");
+  nextline++;
+  move(nextline,45);
+/*
+  printw("0x%x 0x%x",(unsigned char) elServoStatus[0],(unsigned char) elServoStatus[1]);
+*/
+  nextline++;
+
+        if(elServoStatus[0]&1) {
 	move(nextline,45);
-	printw("AUX motor 3 off");
-	nextline++;
-	}
-  if(el_status[6] & 0x8) {
+        addstr("Emergency limit");
+        nextline++;
+        }
+        if(elServoStatus[0]&2) {
 	move(nextline,45);
-	printw("AUX motor 4 off");
-	nextline++;
-	}
-  if(el_status[7] & 0x1) {
+        addstr("Operating limit ccw");
+        nextline++;
+        }
+        if(elServoStatus[0]&4) {
 	move(nextline,45);
-	printw("Computer disabled");
-	nextline++;
-	}
-  if(el_status[7] & 0x2) {
+        addstr("Operating limit cw");
+        nextline++;
+        }
+        if(elServoStatus[0]&8) {
 	move(nextline,45);
-	printw("Axis disabled");
-	nextline++;
-	}
-  if(el_status[7] & 0x4) {
+        addstr("Prelimit ccw");
+        nextline++;
+        }
+        if(elServoStatus[0]&16) {
 	move(nextline,45);
-	printw("Hand paddle in use");
-	nextline++;
-	}
-  if(el_status[7] & 0x8) {
+        addstr("Prelimit cw");
+        nextline++;
+        }
+        if(elServoStatus[0]&32) {
 	move(nextline,45);
-	printw("Axis in stop");
-	nextline++;
-	}
-  if(el_status[7] & 0x10) {
+        addstr("stow position");
+        nextline++;
+        }
+        if(elServoStatus[0]&64) {
 	move(nextline,45);
-	printw("Elevation above 90 deg");
-	nextline++;
-	}
+        addstr("stow pin inserted");
+        nextline++;
+        }
+        if(elServoStatus[0]&128) {
+	move(nextline,45);
+        addstr("stow pin retracted");
+        nextline++;
+        }
+
+        if(elServoStatus[1]&1) {
+	move(nextline,45);
+        addstr("Servo failure");
+        nextline++;
+        }
+        if(elServoStatus[1]&2) {
+	move(nextline,45);
+        addstr("Brake failure");
+        nextline++;
+        }
+        if(elServoStatus[1]&4) {
+	move(nextline,45);
+        addstr("Encoder failure");
+        nextline++;
+        }
+        if(elServoStatus[1]&8) {
+	move(nextline,45);
+        addstr("Auxiliary mode ");
+        nextline++;
+        }
+        if(elServoStatus[1]&16) {
+	move(nextline,45);
+        addstr("Motion failure");
+        nextline++;
+        }
+        if(elServoStatus[1]&32) {
+	move(nextline,45);
+        addstr("CAN bus failure");
+        nextline++;
+        }
+        if(elServoStatus[1]&64) {
+	move(nextline,45);
+        addstr("Axis disabled");
+        nextline++;
+        }
+        if(elServoStatus[1]&128) {
+	move(nextline,45);
+        addstr("Local mode");
+        nextline++;
+        }
 
 /* System Status */
 
-  move(17,45);
+  nextline=24;
+  move(nextline,3);
   addstr("System status:");
-  nextline=19;
+  nextline++;
+  move(nextline,3);
+  addstr("--------------");
+  nextline++;
+  move(nextline,3);
+/*
+  printw("0x%x 0x%x 0x%x 0x%x 0x%x",(unsigned char)acuSystemGS[0],
+                                    (unsigned char)acuSystemGS[1],
+                                    (unsigned char)acuSystemGS[2],
+                                    (unsigned char)acuSystemGS[3],
+                                    (unsigned char)acuSystemGS[4]);
+*/
+  nextline++;
+/*here*/
+  if(acuSystemGS[0] & 1) {
+	move(nextline,3);
+        standout();
+	printw("Door interlock");
+        standend();
+	nextline++;
+	}
+  if(acuSystemGS[0] & 2) {
+	move(nextline,3);
+        standout();
+	printw("SAFE");
+        standend();
+	nextline++;
+	}
+  if(acuSystemGS[0] & 64) {
+	move(nextline,3);
+	printw("Emergency Off");
+	nextline++;
+	}
+  if(acuSystemGS[0] & 128) {
+	move(nextline,3);
+        standout();
+	printw("Not on source");
+        standend();
+	nextline++;
+	}
+  if(acuSystemGS[1] & 4) {
+	move(nextline,3);
+        standout();
+	printw("Time error");
+        standend();
+	nextline++;
+	}
+  if(acuSystemGS[1] & 8) {
+	move(nextline,3);
+	printw("Year error");
+	nextline++;
+	}
+  if(acuSystemGS[1] & 32) {
+	move(nextline,3);
+	printw("Green mode active");
+	nextline++;
+	}
+  if(acuSystemGS[1] & 64) {
+	move(nextline,3);
+	printw("Speed high");
+	nextline++;
+	}
+  if(acuSystemGS[1] & 128) {
+	move(nextline,3);
+	printw("Remote");
+	nextline++;
+	}
+  if(acuSystemGS[2] & 1) {
+	move(nextline,3);
+	printw("Spline green");
+	nextline++;
+	}
+  if(acuSystemGS[2] & 2) {
+	move(nextline,3);
+	printw("Spline yellow");
+	nextline++;
+	}
+  if(acuSystemGS[2] & 4) {
+	move(nextline,3);
+	printw("Spline red");
+	nextline++;
+	}
+  if(acuSystemGS[2] & 16) {
+	move(nextline,3);
+	printw("Gearbox oil level warning");
+	nextline++;
+	}
+  if(acuSystemGS[2] & 32) {
+	move(nextline,3);
+	printw("PLC interface OK");
+	nextline++;
+	}
+  if(acuSystemGS[3] & 1) {
+	move(nextline,3);
+	printw("PCU mode");
+	nextline++;
+	}
+  if(acuSystemGS[3] & 4) {
+	move(nextline,3);
+	printw("Tiltmeter error ");
+	nextline++;
+	}
+  if(acuSystemGS[4] & 1) {
+	move(nextline,3);
+	printw("Cabinet overtemperature");
+	nextline++;
+	}
+  if(acuSystemGS[4] & 4) {
+	move(nextline,3);
+	printw("Shutter open");
+	nextline++;
+	}
+  if(acuSystemGS[4] & 8) {
+	move(nextline,3);
+/* standout();*/
+        attron(COLOR_PAIR(1));
+	printw("Shutter closed");
+        attroff(COLOR_PAIR(1));
+/*        standend(); */
+	nextline++;
+	}
+  if(acuSystemGS[4] & 168) {
+	move(nextline,3);
+	printw("Shutter failure");
+	nextline++;
+	}
 
-  if(system_status[0] & 0x1) {
-	move(nextline,45);
-	printw("Safe Switch ON");
-	nextline++;
-	}
-  if(system_status[0] & 0x2) {
-	move(nextline,45);
-	printw("Power Failure");
-	nextline++;
-	}
-  if(system_status[0] & 0x4) {
-	move(nextline,45);
-	printw("24V failure");
-	nextline++;
-	}
-  if(system_status[0] & 0x8) {
-	move(nextline,45);
-	printw("Breaker failure");
-	nextline++;
-	}
-  if(system_status[0] & 0x10) {
-	move(nextline,45);
-	printw("ACU-PTC communication error");
-	nextline++;
-	}
-  if(system_status[0] & 0x20) {
-	move(nextline,45);
-	printw("ACU-PLC communication error");
-	nextline++;
-	}
-  if(system_status[0] & 0x40) {
-	move(nextline,45);
-	printw("Cabinet over-temperature");
-	nextline++;
-	}
-  if(system_status[0] & 0x80) {
-	move(nextline,45);
-	printw("Cabinet door open");
-	nextline++;
-	}
-  
-  if(system_status[1] & 0x1) {
-	move(nextline,45);
-	printw("Platform 2 handrails not lowered");
-	nextline++;
-	}
-  if(system_status[1] & 0x2) {
-	move(nextline,45);
-	printw("Ramp to receiver cabin not tilted up");
-	nextline++;
-	}
-  if(system_status[1] & 0x4) {
-	move(nextline,45);
-	printw("Hoist interlock");
-	nextline++;
-	}
-  if(system_status[1] & 0x8) {
-	move(nextline,45);
-	printw("Acces bar to platform 2 open");
-	nextline++;
-	}
-  if(system_status[1] & 0x10) {
-	move(nextline,45);
-	printw("Access door to platform 1 open");
-	nextline++;
-	}
-  if(system_status[1] & 0x20) {
-	move(nextline,45);
-	printw("Receiver cabin door open");
-	nextline++;
-	}
-  if(system_status[1] & 0x40) {
-	move(nextline,45);
-	printw("Timing pulse missing");
-	nextline++;
-	}
-  if(system_status[1] & 0x80) {
-	move(nextline,45);
-	printw(" ");
-	nextline++;
-	}
-  
-  if(system_status[2] & 0x1) {
-	move(nextline,45);
-	printw("E-stop: Cabinet (equipment rack)");
-	nextline++;
-	}
-  if(system_status[2] & 0x2) {
-	move(nextline,45);
-	printw("E-stop: Equipment rack");
-	nextline++;
-	}
-  if(system_status[2] & 0x4) {
-	move(nextline,45);
-	printw("E-stop: Antenna base");
-	nextline++;
-	}
-  if(system_status[2] & 0x8) {
-	move(nextline,45);
-	printw("E-stop: Platform 2");
-	nextline++;
-	}
-  if(system_status[2] & 0x10) {
-	move(nextline,45);
-	printw("E-stop: Stairway to platform 1");
-	nextline++;
-	}
-  if(system_status[2] & 0x10) {
-	move(nextline,45);
-	printw("E-stop: Receiver cabin");
-	nextline++;
-	}
-  
 refresh();
 }
 
