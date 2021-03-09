@@ -1272,9 +1272,23 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 /*        standend(); */
 	nextline++;
 	}
-  if(acuSystemGS[4] & 168) {
+  if(acuSystemGS[4] & 16) {
 	move(nextline,3);
+        attron(COLOR_PAIR(1));
 	printw("Shutter failure");
+        attroff(COLOR_PAIR(1));
+	nextline++;
+	}
+  if(acuSystemGS[4] & 32) {
+	move(nextline,3);
+        attron(COLOR_PAIR(1));
+	printw("Shutter fan failure");
+        attroff(COLOR_PAIR(1));
+	nextline++;
+	}
+  if(acuSystemGS[4] & 64) {
+	move(nextline,3);
+	printw("Shutter fan on");
 	nextline++;
 	}
 
