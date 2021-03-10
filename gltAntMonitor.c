@@ -1156,15 +1156,20 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   addstr("--------------");
   nextline++;
   move(nextline,3);
-/*
-  printw("0x%x 0x%x 0x%x 0x%x 0x%x",(unsigned char)acuSystemGS[0],
-                                    (unsigned char)acuSystemGS[1],
-                                    (unsigned char)acuSystemGS[2],
-                                    (unsigned char)acuSystemGS[3],
-                                    (unsigned char)acuSystemGS[4]);
-*/
+
   nextline++;
-/*here*/
+  if(acuSystemGS[1] & 128) {
+	move(nextline,3);
+	printw("REMOTE");
+	nextline++;
+	} else {
+	move(nextline,3);
+        attron(COLOR_PAIR(1));
+	printw("LOCAL");
+        attroff(COLOR_PAIR(1));
+	nextline++;
+  }
+
   if(acuSystemGS[0] & 1) {
 	move(nextline,3);
         standout();
@@ -1211,11 +1216,6 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   if(acuSystemGS[1] & 64) {
 	move(nextline,3);
 	printw("Speed high");
-	nextline++;
-	}
-  if(acuSystemGS[1] & 128) {
-	move(nextline,3);
-	printw("Remote");
 	nextline++;
 	}
   if(acuSystemGS[2] & 1) {
