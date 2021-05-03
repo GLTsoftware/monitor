@@ -30,7 +30,16 @@ NAP 30 Apr 2021: rearranged main page display for clarity.
   #define movemacro(x,y) move(x,y)
 #endif
 
+#define CSAT 800 
+
 #define REFRESH_INTERVAL 3
+#define COLOR_NORMAL   1
+#define COLOR_LABEL    2
+#define COLOR_EMPHASIS 3
+#define COLOR_ENABLED  4
+#define COLOR_DISABLED 5
+#define COLOR_VARIANT  6
+
 
 void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 	double *ra_disp,double *dec_disp, 
@@ -49,6 +58,22 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
         float *tsysAtmLeft, float *tsysAtmRight, float *polar_dut_f,
         short *azm1t,short *azm2t,short *elm1t,short *elm2t,short *elm3t,short *elm4t,
         float *azm1i,float *azm2i,float *elm1i,float *elm2i,float *elm3i,float *elm4i);
+
+int monoFlag = FALSE;
+int setSimpleChars = FALSE;
+int extCharset = TRUE;
+int lowColorFlag = FALSE;
+int whiteBG = FALSE;
+
+typedef struct {
+  int isColor;
+  int isWhiteBG;
+  int isReducedColor;
+} COLOR_SCHEME;
+
+static COLOR_SCHEME schemes[5] = { { TRUE, FALSE, FALSE }, { TRUE, FALSE, TRUE }, { TRUE, TRUE, FALSE }, { TRUE, TRUE, TRUE}, { FALSE, FALSE, FALSE } };
+static int scheme = 0;
+
 
 int antDisplay(int ant, int icount) {
   char dummyByte;
@@ -83,6 +108,9 @@ int antDisplay(int ant, int icount) {
   char azServoStatus[2],elServoStatus[2];
   int acuDay,acuHour;
   char acuErrorMessage[256],acuSystemGS[6];
+
+
+
 
  /* weather variables from DSM */
   float temperature,pressure,humidity,windspeed,winddir;
@@ -300,9 +328,31 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   double acuS,acuTime;
   short acuTimesign;
 
+ int bgColor = COLOR_BLACK;
 
   start_color();
   init_pair(1,COLOR_RED,COLOR_BLACK); /*red on black */
+ init_color(COLOR_WHITE, CSAT, CSAT, CSAT);
+
+      init_color(COLOR_RED, CSAT, 0, 0);
+      init_color(COLOR_GREEN, 0, CSAT, 0);
+      init_color(COLOR_BLUE, 0, 0, CSAT);
+
+      init_color(COLOR_YELLOW, CSAT, CSAT, CSAT/2);
+      init_color(COLOR_CYAN, CSAT/4, (3*CSAT)/4, CSAT);
+      init_color(COLOR_MAGENTA, CSAT, CSAT/2, CSAT);
+
+      init_pair(COLOR_NORMAL, COLOR_WHITE, COLOR_BLACK);
+ init_pair(COLOR_ENABLED, COLOR_GREEN, bgColor);
+    init_pair(COLOR_DISABLED, COLOR_RED, bgColor);
+
+    init_pair(COLOR_EMPHASIS, COLOR_YELLOW, bgColor);
+    init_pair(COLOR_LABEL, COLOR_CYAN, bgColor);
+    init_pair(COLOR_VARIANT, whiteBG ? COLOR_BLUE : COLOR_MAGENTA, bgColor);
+
+
+    bkgd(A_NORMAL | COLOR_PAIR(COLOR_NORMAL));
+
 
   ha=*lst_disp-*ra_disp;
 
@@ -338,16 +388,16 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   dsm_read(host,"DSM_ESTOP_BYPASS_L",(char *)&estopBypass, &timestamp);
 */
   movemacro(2,2);
-  printw("GLT Antenna tracking ");
+  printLabel("GLT Antenna tracking ");
 
  
 
   movemacro (4,5);
-  addstr("LST");
+  printLabel("LST");
   move (4,15);
-  addstr("UTC");
+  printLabel("UTC");
   movemacro(4,25);
-  addstr("TJD");
+  printLabel("TJD");
   movemacro(2,32);
   if (strlen(source) > SOURCE_CHAR_LEN) {
     printw("wacko");
@@ -416,7 +466,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   movemacro(5,23);
   printw("%lf",*tjd_disp);
   movemacro(6,3);
-  printw("H.A.: ");
+  printLabel("H.A.: ");
 #if DEBUG
   refresh();
 #endif  
@@ -430,7 +480,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 #endif  
 
   movemacro(6,20);
-  printw("dUT: ");
+  printLabel("dUT: ");
   printw("%.3f",*polar_dut_f);
 #if DEBUG
   refresh();
@@ -444,7 +494,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   movemacro(7,30);
   addstr("DEC");
   movemacro(8,2);
-  addstr("CATALOG");
+  printLabel("CATALOG");
   movemacro(8,12);
   af(&ra_cat_h,str);
   if (isdigit(str[0]) == 0 || isdigit(str[1]) == 0) {
@@ -494,7 +544,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   }
   
   movemacro(9,2);
-  printw("APPARENT");
+  printLabel("APPARENT");
   movemacro(9,12);
   af(&ra_app_h,str);
   if (isdigit(str[0]) == 0 || isdigit(str[1]) == 0) {
@@ -548,12 +598,12 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   }
   
   movemacro(11,14);
-  addstr("AZIM");
+  printLabel("Azimuth");
   movemacro(11,30);
-  addstr("ELEV");
+  printLabel("Elevation");
   
   move(12,2);
-  addstr("CMD");
+  printLabel("CMD");
   move(12,9);
 #if DEBUG
   refresh();
@@ -630,7 +680,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     addch(str[1]);
   }
   move(13,2);
-  addstr("ACTUAL");
+  printLabel("ACTUAL");
   move(13,9);
   if((az_act_sign<0)&&(az_act_d==0))addch('-');
   move(13,10);
@@ -687,7 +737,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   refresh();
 #endif  
   move(14,2);
-  addstr("ERROR");
+  printLabel("TrError");
   move(14,11);
 #define LARGE_TRACKING_ERROR 2.0
   if (fabs(*az_error) > LARGE_TRACKING_ERROR) {
@@ -711,7 +761,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     printw("(%.1f\")",*smoothed_tracking_error);
   */
   move(15,2);
-  addstr("PMODELS(\")");
+  printLabel("PMODELS(\")");
   move(15,12);
   if (fabs(*pmdaz) >= 1000000) {
     standout();
@@ -729,23 +779,20 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     printw("(%6.0f)",*pmdel);
   }
   move(16,2);
-  addstr("OFFSETS(\")");
+  printLabel("OFFSETS(\")");
   move(16,12);
 #if DEBUG
   refresh();
 #endif  
   
-  if (fabs(*azoff) > WACKO_OFFSET) {
-    standout();
-    printw(" wacko");
-    standend();
-  } else {
-    if (fabs(*azoff) >= 20.) {
-      standout();
+  if (fabs(*azoff) > WACKO_OFFSET) printDisabled(" wacko");
+  if (fabs(*azoff) >= 20.) {
+      setDisabled();
+      printw("%6.0f",*azoff);
+      normalText();
+    } else { 
+      printw("%6.0f",*azoff);
     }
-    printw("%6.0f",*azoff);
-    standend();
-  }
 #if DEBUG
   refresh();
 #endif  
@@ -763,7 +810,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   refresh();
 #endif  
   move(17,2);
-  addstr("REFRACTION:");
+  printLabel("REFRACTION:");
   move(17,13);
 #if DEBUG
   refresh();
@@ -773,9 +820,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     printw("%5.1f \" (radio)   ",*refraction);
     break;
   case 0:
-    standout();
-    printw("%5.1f \" (optical) ",*refraction);
-    standend();
+    printDisabled("%5.1f \" (optical) ",*refraction);
     break;
   default:
     printw(" wacko");
@@ -785,50 +830,55 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   refresh();
 #endif
   
-#ifdef LINUX
-/*
-  if(colorFlag) {
-  pair_content(pair,&foreground,&background);
-  init_pair(1,COLOR_CYAN,background);
-  attron(COLOR_PAIR(1));
-  }
-*/
-#endif
-  nextline=34;
+  nextline=30;
   nextcol=2;
   move(nextline,nextcol);
-   addstr("Motor currents (A):");
+   printLabel("Motor currents (A):");
   move(nextline+1,nextcol);
-   printw("az1: %.2f az2: %.2f",*azm1i,*azm2i);
+   printLabel("az1: ");
+   printw("%.2f ",*azm1i);
+   printLabel("az2: ");
+   printw("%.2f ",*azm2i);
   move(nextline+2,nextcol);
-   printw("el1: %.2f el2: %.2f",*elm1i,*elm2i);
+   printLabel("el1: ");
+   printw("%.2f",*elm1i);
+   printLabel(" el2: ");
+   printw("%.2f",*elm2i);
   move(nextline+3,nextcol);
-   printw("el3: %.2f el4: %.2f",*elm3i,*elm4i);
+   printLabel("el3: ");
+   printw("%.2f",*elm3i);
+   printLabel(" el4: ");
+   printw("%.2f",*elm4i);
 
 
 /* displaying weather */
-  nextline=39;
+  nextline=35;
   nextcol = 2;
   move(nextline,nextcol);
-  printw("Weather:");
+  printLabel("Weather:");
   nextline++;
   move(nextline,nextcol);
-  printw("%.1f C", *temperature);
+  printw("%.1f", *temperature);
+  printUnit(" C");
   move(nextline+3,nextcol);
-  printw("%.1f mbar", *pressure);
+  printw("%.1f", *pressure);
+  printUnit(" mbar");
   move(nextline+4,nextcol);
-  printw("%.1f %%", *humidity);
+  printw("%.1f", *humidity);
+  printLabel(" %%");
   move(nextline,nextcol+10);
-  printw("%.1f m/s", *windspeed);
+  printw("%.1f", *windspeed);
+  printUnit(" m/s");
   move(nextline,nextcol+20);
-  printw("%.1f deg", *winddir);
+  printw("%.1f", *winddir);
+  printUnit(" deg");
   move(nextline+4,nextcol+13);
-  printw("Tau: %.2f ", *tau);
+  printLabel("Tau: ");
+  printw("%.2f", *tau);
 
   move(nextline+1,nextcol);
-  if(*windchill<=-45.) attron(COLOR_PAIR(1));
-  printw("%.1f C (wind chill)",*windchill);
-  if(*windchill<=-45.) attroff(COLOR_PAIR(1));
+  if(*windchill<=-45.) printDisabled("%.1f C (wind chill)",*windchill);
+  else printw("%.1f C (wind chill)",*windchill);
 
   move(nextline+2,nextcol);
   if(*temperature<=0.) printw("%.1f C (frostpoint)",*dftemp);
@@ -836,28 +886,30 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 
 /* tsys */
   move(nextline+6,nextcol);
-  addstr("Tsys (amb) L/R:");
+  printLabel("Tsys (amb) L/R: ");
   move(nextline+6,nextcol+15);
-  printw("%.1f %.1f K", *tsysAmbLeft,*tsysAmbRight);
+  printw("%.1f %.1f", *tsysAmbLeft,*tsysAmbRight);
+  printUnit(" K");
   move(nextline+7,nextcol);
-  addstr("Tsys (atm) L/R:");
+  printLabel("Tsys (atm) L/R: ");
   move(nextline+7,nextcol+15);
-  printw("%.1f %.1f K", *tsysAtmLeft,*tsysAtmRight);
+  printw("%.1f %.1f", *tsysAtmLeft,*tsysAtmRight);
+  printUnit(" K");
 
-  nextline=50;
+  nextline=45;
   nextcol=2;
   move(nextline,nextcol);
-  addstr("gltTrack msg:");
+  printLabel("gltTrack msg:");
   move(nextline,nextcol+14);
   printw("%s",messg);
   nextline++;
   move(nextline,nextcol);
-  addstr("Last cmd:");
+  printLabel("Last cmd:");
   move(nextline,nextcol+11);
   printw("%s",lastcommand);
   nextline++;
   move(nextline,nextcol);
-  addstr("ACU error msg:");
+  printLabel("ACU error msg:");
   move(nextline,nextcol+14);
   printw("%s",acuErrorMessage);
 
@@ -914,7 +966,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   nextline=19;
   nextcol=2;
   move(nextline,nextcol);
-  addstr("Mode: ");
+  printLabel("Mode: ");
   nextcol=14;
   	move(nextline,nextcol);
         if(*acuModeAz==0x1) addstr("Stop");
@@ -954,7 +1006,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   nextline++;
   nextcol=2;
   move(nextline,nextcol);
-  addstr("Servo: ");
+  printLabel("Servo: ");
   nextcol = nextcol+8;
 
         if(azServoStatus[0]&1) {
@@ -1130,19 +1182,19 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   nextline=2;
   nextcol=49;
   move(nextline,nextcol);
-  addstr("System status:");
+  printLabel("System status:");
   nextline++;
   move(nextline,nextcol);
-  addstr("--------------");
+  printLabel("--------------");
   nextline++;
   move(nextline,nextcol);
-  addstr("ACU time:");
+  printLabel("ACU time:");
   move(nextline,nextcol+10);
   printw("%d", *acuDay);
   move(nextline,nextcol+15);
-  printw("%02d", acuH);
+  printw("%02d:", acuH);
   move(nextline,nextcol+18);
-  printw("%02d", acuM);
+  printw("%02d:", acuM);
   move(nextline,nextcol+21);
   printw("%04.2f", acuS);
   nextline++;
@@ -1151,52 +1203,50 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   nextline++;
   if(acuSystemGS[1] & 128) {
 	move(nextline,nextcol);
-	printw("REMOTE");
+	printEnabled("REMOTE");
 	nextline++;
 	} else {
 	move(nextline,nextcol);
-        attron(COLOR_PAIR(1));
-	printw("LOCAL");
-        attroff(COLOR_PAIR(1));
+	printDisabled("LOCAL");
 	nextline++;
   }
 
   if(acuSystemGS[0] & 1) {
 	move(nextline,nextcol);
         standout();
-	printw("Door interlock");
+	printDisabled("Door interlock");
         standend();
 	nextline++;
 	}
   if(acuSystemGS[0] & 2) {
 	move(nextline,nextcol);
         standout();
-	printw("SAFE");
+	printDisabled("SAFE");
         standend();
 	nextline++;
 	}
   if(acuSystemGS[0] & 64) {
 	move(nextline,nextcol);
-	printw("Emergency Off");
+	printDisabled("Emergency Off");
 	nextline++;
 	}
   if(acuSystemGS[0] & 128) {
 	move(nextline,nextcol);
         standout();
-	printw("Not on source");
+	printDisabled("Not on source");
         standend();
 	nextline++;
 	}
   if(acuSystemGS[1] & 4) {
 	move(nextline,nextcol);
         standout();
-	printw("Time error");
+	printDisabled("Time error");
         standend();
 	nextline++;
 	}
   if(acuSystemGS[1] & 8) {
 	move(nextline,nextcol);
-	printw("Year error");
+	printDisabled("Year error");
 	nextline++;
 	}
   if(acuSystemGS[1] & 32) {
@@ -1246,21 +1296,17 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 	}
   if(acuSystemGS[4] & 1) {
 	move(nextline,nextcol);
-	printw("Cabinet overtemperature");
+	printDisabled("Cabinet overtemperature");
 	nextline++;
 	}
   if(acuSystemGS[4] & 4) {
 	move(nextline,nextcol);
-	printw("Shutter open");
+	printEnabled("Shutter open");
 	nextline++;
 	}
   if(acuSystemGS[4] & 8) {
 	move(nextline,nextcol);
-/* standout();*/
-        attron(COLOR_PAIR(1));
-	printw("Shutter closed");
-        attroff(COLOR_PAIR(1));
-/*        standend(); */
+	printDisabled("Shutter closed");
 	nextline++;
 	}
   if(acuSystemGS[4] & 16) {
@@ -1272,14 +1318,12 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 	}
   if(acuSystemGS[4] & 32) {
 	move(nextline,nextcol);
-        attron(COLOR_PAIR(1));
-	printw("Shutter fan failure");
-        attroff(COLOR_PAIR(1));
+	printDisabled("Shutter fan failure");
 	nextline++;
 	}
   if(acuSystemGS[4] & 64) {
 	move(nextline,nextcol);
-	printw("Shutter fan on");
+	printEnabled("Shutter fan on");
 	nextline++;
 	}
 
@@ -1323,3 +1367,158 @@ j=48+l;
 s[0]=j;
 }
 }
+
+void boldOn() {
+  if(!monoFlag) attron(A_BOLD);
+}
+
+void boldOff() {
+  attroff(A_BOLD);
+}
+
+
+void highlight() {
+  attron(A_STANDOUT);
+}
+
+void nohighlight() {
+  attroff(A_STANDOUT);
+}
+
+void setLabel() {
+  if(!monoFlag) attron(COLOR_PAIR(COLOR_LABEL));
+}
+
+void setBright() {
+  if(!monoFlag) attron(COLOR_PAIR(lowColorFlag ? COLOR_NORMAL : COLOR_EMPHASIS));
+}
+
+void setFlashing() {
+  attron(A_BLINK);
+}
+
+
+void setEnabled() {
+  if(!monoFlag) {
+    int a, c;
+    attr_get(&a, &c, NULL);
+    if(a & A_STANDOUT) attron(COLOR_PAIR(COLOR_NORMAL));
+    else attron(COLOR_PAIR(lowColorFlag ? COLOR_NORMAL : COLOR_ENABLED));
+  }
+}
+
+void setDisabled() {
+  if(!monoFlag) {
+    attron(COLOR_PAIR(lowColorFlag ? COLOR_NORMAL : COLOR_DISABLED));
+  }
+}
+
+void setAlt() {
+  if(!monoFlag) {
+    int a, c;
+    attr_get(&a, &c, NULL);
+    if(a & A_STANDOUT) attron(COLOR_PAIR(COLOR_NORMAL));
+    else attron(COLOR_PAIR(lowColorFlag ? COLOR_NORMAL : COLOR_VARIANT));
+  }
+}
+
+
+
+void normalText() {
+  int a, c;
+  attr_get(&a, &c, NULL);
+
+  if(!monoFlag) {
+    attrset(A_NORMAL | (a & A_STANDOUT) | COLOR_PAIR(COLOR_NORMAL));
+  }
+  else {
+    attrset(A_NORMAL | (a & A_STANDOUT));
+  }
+}
+
+
+void printLabel(char *text) {
+  setLabel();
+  printw(text);
+  normalText();
+}
+
+void printUnit(char *text) {
+  int a, c;
+  attr_get(&a, &c, NULL);
+
+
+  setLabel();
+  boldOff();
+
+  attroff(A_STANDOUT);
+
+  printw(text);
+  normalText();
+
+  if(a & A_STANDOUT) attron(A_STANDOUT);
+}
+
+void printHighlighted(char *text) {
+  highlight();
+  printw(text);
+  nohighlight();
+}
+
+void printBold(char *text) {
+  boldOn();
+  printw(text);
+  boldOff();
+}
+
+void printEnabled(char *text) {
+  setEnabled();
+  printw(text);
+  normalText();
+}
+
+void printDisabled(char *text) {
+  setDisabled();
+  printw(text);
+  normalText();
+}
+
+void printAlt(char *text) {
+  setAlt();
+  printw(text);
+  normalText();
+}
+
+
+void printBright(char *text) {
+  setBright();
+  printw(text);
+  normalText();
+}
+
+void printFlashing(char *text) {
+  setBright();
+  setFlashing();
+  printw(text);
+  normalText();
+}
+
+void printBooleanState(int value, char *enabledText, char *disabledText) {
+  if(value) printEnabled(enabledText);
+  else printDisabled(disabledText);
+}
+
+void printTriState(int value, char *enabledText, char *disabledText, char *wackoText) {
+  if(value == 1) printEnabled(enabledText);
+  else if(value == 0) printDisabled(disabledText);
+  else printDisabled(wackoText);
+}
+
+void printTriValue(int value) {
+  if(value == 0) printDisabled("0");
+  else if(value == 1) printEnabled("1");
+  else {
+    setBright(); printw("%d", value); normalText();
+  }
+}
+

@@ -20,6 +20,9 @@ Only the following pages will be ported for now (for Socorro/Norfolk tests).
 Only page (1) of above will be implemented for now!
 */
 
+/* NAP 1 May 2021. Many changes to document here, but the code is now on github
+where more comments will be in commits. */
+
 #define PRINT_DSM_ERRORS 0 /* set this to 1 to debug DSM problems
 			    * with the use of call_dsm_read() */
 #define N_LINES 20
@@ -66,9 +69,16 @@ ANTENNAPAGE_DISPLAY /* 1  (going up 10) */
 #define FALSE 0
 #define TIMEOUT 3600
 
+#define COLOR_NORMAL   1
+#define COLOR_LABEL    2
+#define COLOR_EMPHASIS 3
+#define COLOR_ENABLED  4
+#define COLOR_DISABLED 5
+#define COLOR_VARIANT  6
+
 #include "commandMonitor.h"
 
-int colorFlag = FALSE;
+int colorFlag = TRUE;
 int bottom2op = FALSE;
 int bottomOpMsg = FALSE;
 int projectLockout;
@@ -112,6 +122,23 @@ struct termio tio, tin;
 int beepFlag=1;
 int antsAvailable[MAX_NUMBER_ANTENNAS+1] = {0,0,0,0,0,0,0,0,0,0,0};
 int deadAntennas[MAX_NUMBER_ANTENNAS+1] = {0,0,0,0,0,0,0,0,0,1,1};
+
+/*
+int monoFlag = FALSE;
+int setSimpleChars = FALSE;
+int extCharset = TRUE;
+int lowColorFlag = FALSE;
+int whiteBG = FALSE;
+
+typedef struct {
+  int isColor;
+  int isWhiteBG;
+  int isReducedColor;
+} COLOR_SCHEME;
+
+static COLOR_SCHEME schemes[5] = { { TRUE, FALSE, FALSE }, { TRUE, FALSE, TRUE }, { TRUE, TRUE, FALSE }, { TRUE, TRUE, TRUE}, { FALSE, FALSE, FALSE } };
+static int scheme = 0;
+*/
 
 int smainitMode = 0; /* Set to 1 when displaying smainit pages */
 int antMode = 0;
@@ -366,7 +393,30 @@ void initialize() {
   initscr();
   if(colorFlag) {
 	start_color();
-  }
+/*
+   init_color(COLOR_WHITE, CSAT, CSAT, CSAT);
+
+      init_color(COLOR_RED, CSAT, 0, 0);
+      init_color(COLOR_GREEN, 0, CSAT, 0);
+      init_color(COLOR_BLUE, 0, 0, CSAT);
+
+      init_color(COLOR_YELLOW, CSAT, CSAT, CSAT/2);
+      init_color(COLOR_CYAN, CSAT/4, (3*CSAT)/4, CSAT);
+      init_color(COLOR_MAGENTA, CSAT, CSAT/2, CSAT);
+
+      init_pair(COLOR_NORMAL, COLOR_WHITE, COLOR_BLACK);
+ init_pair(COLOR_ENABLED, COLOR_GREEN, bgColor);
+    init_pair(COLOR_DISABLED, COLOR_RED, bgColor);
+
+    init_pair(COLOR_EMPHASIS, COLOR_YELLOW, bgColor);
+    init_pair(COLOR_LABEL, COLOR_CYAN, bgColor);
+    init_pair(COLOR_VARIANT, whiteBG ? COLOR_BLUE : COLOR_MAGENTA, bgColor);
+
+
+    bkgd(A_NORMAL | COLOR_PAIR(COLOR_NORMAL));
+*/
+    }
+
   nonl();
   clear();
    /* LINES and COLS are now defined */
