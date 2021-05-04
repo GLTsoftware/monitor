@@ -22,6 +22,8 @@ NAP 30 Apr 2021: rearranged main page display for clarity.
 #include "dsm.h"
 #include "monitor.h"
 #include "antMonitor.h"
+#include <zmq.h>
+#include "hpParameters.h"
 #define DSM_HOST "gltacc"
 #define DEBUG 0
 #if DEBUG
@@ -40,6 +42,8 @@ NAP 30 Apr 2021: rearranged main page display for clarity.
 #define COLOR_DISABLED 5
 #define COLOR_VARIANT  6
 
+extern struct pmacInfo getPMACinfo();
+int pmacStringToInt(char* pmacString);
 
 void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 	double *ra_disp,double *dec_disp, 
@@ -73,6 +77,9 @@ typedef struct {
 
 static COLOR_SCHEME schemes[5] = { { TRUE, FALSE, FALSE }, { TRUE, FALSE, TRUE }, { TRUE, TRUE, FALSE }, { TRUE, TRUE, TRUE}, { FALSE, FALSE, FALSE } };
 static int scheme = 0;
+
+typedef struct hpStatusVariable hps;
+hps hp;
 
 
 int antDisplay(int ant, int icount) {
@@ -126,6 +133,57 @@ int antDisplay(int ant, int icount) {
   float polar_dut_f;
      short azm1t,azm2t,elm1t,elm2t,elm3t,elm4t;
      float azm1i,azm2i,elm1i,elm2i,elm3i,elm4i;
+
+/* Hexapod variables */
+ int msgLength = 512;
+ const char* sysStatusVar[] =
+   {"STA_SD","STA_OL","STA_CL","STA_MV","STA_ER","STA_IN","STA_CM","STA_PN"};
+ const char* cmdStatusVar[] =
+   {"CMD_OK","CMD_ER","CMD_ST","CMD_TR","CMD_CE","CMD_CF","CMD_NA","CMD_NV"};
+ int actStatusInt,csStatusInt;
+ typedef struct pmacInfo pmacINFO;
+ pmacINFO pmac;
+int lengthSendMsg;
+ char recvBuffer[msgLength];
+ char sendBuffer[msgLength];
+ char PMAChost[40];
+
+  pmac = getPMACinfo();
+ void *context = zmq_ctx_new ();
+ void *requester = zmq_socket (context, ZMQ_REQ);
+ sprintf(PMAChost,"tcp://%s:%d",PMAC_HOST_IP,PMAC_HOST_PORT);
+ strcpy(sendBuffer,"g");
+ lengthSendMsg=strlen(sendBuffer);
+ zmq_connect (requester, PMAChost);
+ zmq_send(requester, sendBuffer, lengthSendMsg, 0);
+ zmq_recv(requester, recvBuffer, msgLength, 0);
+ sscanf(recvBuffer,
+  "%f %s %f %d %d %d %d %d %s %f \ 
+  %f %f %f %f %f %f %f %f %f %f \
+  %f %f %f %f %f %f %f %f %f %f \
+  %f %f %f %f %f %f %f %f %f %f \
+  %f %f %f %f %f %f %f %f %s %s \
+  %s %s %s %s %f %f %f %f %f %f",
+  &hp.sysUptime,
+  hp.lastCmdCode,
+  &hp.lastCmdUptime,
+  &hp.lastSysErrorCode,
+  &hp.sysStatus,
+  &hp.errorCode,
+  &hp.errorUptime,
+  &hp.tempWarning,
+  hp.coordSysStatus,
+  &hp.chopIntegration,
+  &hp.linearSpeed, &hp.rotSpeed,
+  &hp.X,&hp.Y,&hp.Z,&hp.Rx,&hp.Ry,&hp.Rz,
+  &hp.XCmd,&hp.YCmd,&hp.ZCmd,&hp.RxCmd,&hp.RyCmd,&hp.RzCmd,
+  &hp.Xt,&hp.Yt,&hp.Zt,&hp.Rxt,&hp.Ryt,&hp.Rzt,
+  &hp.act[0],&hp.act[1],&hp.act[2],&hp.act[3],&hp.act[4],&hp.act[5],
+  &hp.MotorT[0],&hp.MotorT[1],&hp.MotorT[2],&hp.MotorT[3],&hp.MotorT[4],&hp.MotorT[5],
+  &hp.actT[0],&hp.actT[1],&hp.actT[2],&hp.actT[3],&hp.actT[4],&hp.actT[5],
+  hp.actStatus[0],hp.actStatus[1],hp.actStatus[2],hp.actStatus[3],hp.actStatus[4],hp.actStatus[5],&hp.actCmdCur[0],&hp.actCmdCur[1],&hp.actCmdCur[2],&hp.actCmdCur[3],&hp.actCmdCur[4],&hp.actCmdCur[5]);
+ zmq_close(requester);
+ zmq_ctx_destroy(context);
 
 
 /*
@@ -1326,6 +1384,63 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 	printEnabled("Shutter fan on");
 	nextline++;
 	}
+/* display Hexapod variables */
+    nextline=nextline+4;
+
+    move(nextline,nextcol);
+    printLabel("Hexapod  UpTime: ");
+    printw("%.1f",hp.sysUptime); 
+    nextline++;
+    move(nextline,nextcol);
+    printLabel("-----------CMD-------------");
+    setLabel();
+    nextline++;
+    mvprintw(nextline,nextcol,"X (um)");
+    mvprintw(nextline,nextcol+8,"Y (um)");
+    mvprintw(nextline,nextcol+16,"Z (um)");
+    normalText();
+    nextline++;
+    mvprintw(nextline,nextcol,"%.1f",hp.XCmd);
+    mvprintw(nextline,nextcol+8,"%.1f",hp.YCmd);
+    mvprintw(nextline,nextcol+16,"%.1f",hp.ZCmd);
+    nextline++;
+    nextcol=49;
+    setLabel();
+    mvprintw(nextline,nextcol,"Rx (\")");
+    mvprintw(nextline,nextcol+8,"Ry (\")");
+    mvprintw(nextline,nextcol+16,"Rz (\")");
+    normalText();
+    nextline++;
+    nextcol=49;
+    mvprintw(nextline,nextcol,"%.1f",hp.RxCmd);
+    mvprintw(nextline,nextcol+8,"%.1f",hp.RyCmd);
+    mvprintw(nextline,nextcol+16,"%.1f",hp.RzCmd);
+    nextline++;
+    nextcol=49;
+    move(nextline,nextcol); 
+    printLabel("----------ACTUAL-----------");
+    setLabel();
+    nextline++;
+    mvprintw(nextline,nextcol,"X (um)");
+    mvprintw(nextline,nextcol+8,"Y (um)");
+    mvprintw(nextline,nextcol+16,"Z (um)");
+    normalText();
+    nextline++;
+    mvprintw(nextline,nextcol,"%.1f",hp.X);
+    mvprintw(nextline,nextcol+8,"%.1f",hp.Y);
+    mvprintw(nextline,nextcol+16,"%.1f",hp.Z);
+    nextline++;
+    nextcol=49;
+    setLabel();
+    mvprintw(nextline,nextcol,"Rx (\")");
+    mvprintw(nextline,nextcol+8,"Ry (\")");
+    mvprintw(nextline,nextcol+16,"Rz (\")");
+    normalText();
+    nextline++;
+    nextcol=49;
+    mvprintw(nextline,nextcol,"%.1f",hp.Rx);
+    mvprintw(nextline,nextcol+8,"%.1f",hp.Ry);
+    mvprintw(nextline,nextcol+16,"%.1f",hp.Rz);
 
 refresh();
 }

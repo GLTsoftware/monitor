@@ -89,30 +89,6 @@ void goto80width(void);
 void goto80WidthAndExit(int value);
 void goto132width(void);
 void allow132width(void);
-/*
-void screen(char *source, double *lst_disp,
-	    double *utc_disp, double *tjd_disp,
-	    double *ra_disp, double *dec_disp,
-	    double *ra_cat_disp, double *dec_cat_disp,
-	    double *az_disp, double *el_disp, int *icount,
-	    double *azoff, double *eloff, 
-	    double *az_actual_corrected, double *el_actual_disp, double *tiltx,
-	    double *tilty, float *pressure,
-	    float *temperature, float *humidity,
-	    double *az_error, double *el_error,
-	    double *scan_unit, char *messg, 
-	    double *focus_counts, double *subx_counts, double *suby_counts,
-	    double *subtilt_counts, double *total_power_disp, 
-	    double *syncdet_disp,
-	    int *integration, float *windspeed,
-	    float *winddirection, float *refraction, float *pmdaz, 
-	    float *pmdel,
-	    double *smoothed_tracking_error, double *tsys, int *ant, 
-	    float *plsAzRdg,
-	    int *radio_flag, short *padid,double *planetdistance,
-	    double *Az_cmd, 
-	    double *El_cmd);
-*/
 
 double sunDistance(double az1,double el1,double az2,double el2);
 
@@ -216,6 +192,7 @@ main(int argc, char *argv[])
   sigemptyset(&action.sa_mask);
   action.sa_handler = handlerForSIGINT;
   sigactionInt = sigaction(SIGINT,&action, &old_action);
+  system("resize -s 58 90");
   
   uname(&unamebuf);
   i = 0;

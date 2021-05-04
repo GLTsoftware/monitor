@@ -1,7 +1,8 @@
 CC = gcc -D LINUX -I$(GLOBALINC)
 CFLAGS = -g -O -Wall
+LFLAGS = -L/usr/local/lib
 #LIB = -lrt $(COMMONLIB)/rm.o libdsm.a $(COMMONLIB)/commonLib -lcurses -lm
-LIB = /global/dsm64/libdsm.a -lpthread -lrt -lcurses -lm
+LIB = /global/dsm64/libdsm.a -lpthread -lrt -lcurses -lm -lzmq
 
 GLOBALLIB = /global/dsm64
 GLOBALINC = /global/dsm64
@@ -9,7 +10,7 @@ OBSBIN = ./
 
 SOURCES = gltmonitor.c gltAntMonitor.c help.c metrology.c receivers.c maser.c
 
-OBJECTS = gltmonitor.o gltAntMonitor.o help.o metrology.o receivers.o maser.o
+OBJECTS = gltmonitor.o gltAntMonitor.o help.o metrology.o receivers.o maser.o getHPstatus.o getPMACinfo.o
 
 all: gltmonitor
 
@@ -20,7 +21,7 @@ install: all
 	cp gltmonitor $(OBSBIN)/
 
 gltmonitor: $(OBJECTS) ./Makefile
-	$(CC) -o gltmonitor.test $(OBJECTS) -L$(GLOBALLIB) $(LIB)
+	$(CC) -o gltmonitor.test $(OBJECTS) -L$(GLOBALLIB) $(LIB) ${LFLAGS}
 
 depend: ./Makefile
 	$(CC) -MM $(SOURCES) > dependencies
