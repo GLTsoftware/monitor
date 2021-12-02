@@ -203,7 +203,6 @@ printf("Time: %d\n",acuStatusResp.timeOfDay);
 	  refraction=(float)dummyDouble;
 	  rms=call_dsm_read(DSM_HOST,"DSM_REFRACTION_RADIO_FLAG_B",&dummyByte,&timestamp);
 	  radio_flag=(int)dummyByte; 
-	  
 	  rms=call_dsm_read(DSM_HOST,"DSM_CMDDISP_AZ_DEG_D",&dummyDouble,&timestamp);
 	  az_disp=(double)dummyDouble;
 	  rms=call_dsm_read(DSM_HOST,"DSM_CMDDISP_EL_DEG_D",&dummyDouble,&timestamp);
@@ -878,7 +877,8 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     printw("%5.1f \" (radio)   ",*refraction);
     break;
   case 0:
-    printDisabled("%5.1f \" (optical) ",*refraction);
+    printw("%5.1f \" ",*refraction);
+    printDisabled(" (optical) ");
     break;
   default:
     printw(" wacko");
