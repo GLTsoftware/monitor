@@ -4,7 +4,9 @@
 Nimesh Patel
 14 June 2012
 
-version 1.0
+version 2.2
+
+
 
 Only the following pages will be ported for now (for Socorro/Norfolk tests).
 1) Main page: "a": combination of array and antenna page
@@ -13,15 +15,20 @@ Only the following pages will be ported for now (for Socorro/Norfolk tests).
 4) Error messages: "e"
 5) Commands summary: "l"
 6) 2op messages: "m"
+7) Satellite Two Line elements display: "s"
 
-*/
 
-/* Note added on 17 June 2012:
+ Note added on 17 June 2012:
 Only page (1) of above will be implemented for now!
-*/
 
-/* NAP 1 May 2021. Many changes to document here, but the code is now on github
-where more comments will be in commits. */
+
+ NAP 1 May 2021. Many changes to document here, but the code is now on github
+where more comments will be in commits. 
+
+NAP 22 Mar 2023. Added P page for pointing model display
+NAP 19 Dec 2024. Added s page for satellite two line display
+
+*/
 
 #define PRINT_DSM_ERRORS 0 /* set this to 1 to debug DSM problems
 			    * with the use of call_dsm_read() */
@@ -44,6 +51,7 @@ where more comments will be in commits. */
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
+#include <hiredis.h>
 /*
 #include <pthread.h>
 */
@@ -59,10 +67,13 @@ where more comments will be in commits. */
 
 enum {
 /* to add a page, insert a new name at the top and decrement the initializor */
-MESSAGE_DISPLAY,PMODEL_DISPLAY,          /* -5 */
-SMAINIT_DISPLAY,HELP_DISPLAY, /* -3 */
-SMASH_DISPLAY,STDERR_DISPLAY,METROLOGY_DISPLAY,RECEIVERS_DISPLAY,MASER_DISPLAY,HOME_DISPLAY,   /* 0 */
-ANTENNAPAGE_DISPLAY /* 1  (going up 10) */
+SAT2LE_DISPLAY,
+POINTING_MODEL_DISPLAY,
+RECEIVERS_DISPLAY,
+HELP_DISPLAY, /* -3 */
+METROLOGY_DISPLAY,
+MASER_DISPLAY,
+HOME_DISPLAY   /* 0 */
 };
 
 #define TRUE 1
@@ -75,6 +86,11 @@ ANTENNAPAGE_DISPLAY /* 1  (going up 10) */
 #define COLOR_ENABLED  4
 #define COLOR_DISABLED 5
 #define COLOR_VARIANT  6
+
+/* redis server (gltobscon) */
+#define REDIS_SERVER "192.168.1.141"
+#define REDIS_PORT 6379
+
 
 #include "commandMonitor.h"
 
@@ -116,6 +132,12 @@ static COLOR_SCHEME schemes[5] = { { TRUE, FALSE, FALSE }, { TRUE, FALSE, TRUE }
 static int scheme = 0;
 */
 
+char redisData[1024];
+redisContext *redisC;
+redisReply *redisResp;
+struct timeval redisTimeout = {1,500000}; /*1.5 seconds for redis timeout */
+
+
 int smainitMode = 0; /* Set to 1 when displaying smainit pages */
 int antMode = 0;
 int commandMode = 0;
@@ -142,23 +164,13 @@ extern void smainitMonitor(int count, int page);
 extern void metrologyPage(int count);
 extern void receiversPage(int count);
 extern void maserPage(int count);
+extern void pointingModelPage(int count);
+extern void sat2LEpage(int count);
 
 /* on the wide 'a' page, this tells which window to start with in the
  * upper right corner */
 int upperRightWindow = UR_MESSAGES;
 
-void usage(char *a);
-void usage(char *a) {
-  printf("Usage: %s -H -h --help\n",a);
-  /*
-    printf("Usage: %s -i -z -Z -H --help\n");
-    printf("      -i  ignore messages from 2op\n");
-*/
-  printf(" -a or --antenna display values for antenna(s) even if 'dead'\n");
-  printf("           -H  show the hangar display page only\n");
-  printf(" -h or --help  show this message\n");
-  exit(0);
-}
 
 main(int argc, char *argv[])
 {
@@ -180,6 +192,8 @@ main(int argc, char *argv[])
   int ignoreFlag;
   struct stat messageStat, oldMessageStat;
 
+  
+
   /* The following variables are for the default Tilt flag read from
      the pointing model files */
    FILE *fpMountModel;
@@ -196,6 +210,18 @@ main(int argc, char *argv[])
   
   uname(&unamebuf);
   i = 0;
+
+   /* initialize connection to redis */
+   redisC = redisConnectWithTimeout(REDIS_SERVER,REDIS_PORT,redisTimeout);
+     if (redisC == NULL || redisC->err) {
+      if (redisC) {
+          printf("Connection error: %s\n", redisC->errstr);
+          redisFree(redisC);
+        } else {
+          printf("Connection error: can't allocate redis context\n");
+      }
+     }
+
 
   rms = dsm_open();
   if(rms != DSM_SUCCESS) {
@@ -278,6 +304,11 @@ main(int argc, char *argv[])
      icount = 1;
      break;
 
+     case 'P':
+     ant = POINTING_MODEL_DISPLAY;
+     icount = 1;
+     break;
+
      case 'a':
      ant = HOME_DISPLAY;
      icount = 0;
@@ -285,8 +316,17 @@ main(int argc, char *argv[])
 
      case 'h':
      ant = HELP_DISPLAY;
-printw("got help key");
-     icount = 0;
+     icount = 1;
+     break;
+
+     case '?':
+     ant = HELP_DISPLAY;
+     icount = 1;
+     break;
+
+     case 's':
+     ant = SAT2LE_DISPLAY;
+     icount = 1;
      break;
 
     }			/* end of switch */
@@ -301,6 +341,10 @@ printw("got help key");
           receiversPage(icount);
           } else if (ant == MASER_DISPLAY) {
           maserPage(icount);
+          } else if (ant == POINTING_MODEL_DISPLAY) {
+          pointingModelPage(icount);
+          } else if (ant == SAT2LE_DISPLAY) {
+          sat2LEpage(icount);
           }
 	sleep(delay);
   }				/* this is the big while loop */
@@ -529,4 +573,3 @@ float computeYearFraction(int day, int month, int year) {
   }
   return(yearFraction);
 }
-
