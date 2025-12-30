@@ -413,6 +413,19 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   double acuS,acuTime;
   short acuTimesign;
 
+  /* Static variables for staleness detection */
+  static int prev_utcsi = -1;
+  static float prev_hp_sysUptime = -1.0;
+  static double prev_acuTime = -1.0;
+
+  static int utc_stale_count = 0;
+  static int hp_uptime_stale_count = 0;
+  static int acu_time_stale_count = 0;
+
+  int utc_is_stale = 0;
+  int hp_uptime_is_stale = 0;
+  int acu_time_is_stale = 0;
+
  int bgColor = COLOR_BLACK;
 
   start_color();
@@ -466,7 +479,43 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   el_cmd_si=(int)el_cmd_s;
   az_act_si=(int)az_act_s;
   el_act_si=(int)el_act_s;
-  
+
+  /* Check for staleness of UTC time */
+  if (prev_utcsi == utcsi) {
+    utc_stale_count++;
+    if (utc_stale_count >= 2) {
+      utc_is_stale = 1;
+    }
+  } else {
+    utc_stale_count = 0;
+    utc_is_stale = 0;
+    prev_utcsi = utcsi;
+  }
+
+  /* Check for staleness of hexapod uptime */
+  if (prev_hp_sysUptime == hp.sysUptime) {
+    hp_uptime_stale_count++;
+    if (hp_uptime_stale_count >= 2) {
+      hp_uptime_is_stale = 1;
+    }
+  } else {
+    hp_uptime_stale_count = 0;
+    hp_uptime_is_stale = 0;
+    prev_hp_sysUptime = hp.sysUptime;
+  }
+
+  /* Check for staleness of ACU time */
+  if (prev_acuTime == acuTime) {
+    acu_time_stale_count++;
+    if (acu_time_stale_count >= 2) {
+      acu_time_is_stale = 1;
+    }
+  } else {
+    acu_time_stale_count = 0;
+    acu_time_is_stale = 0;
+    prev_acuTime = acuTime;
+  }
+
   box(stdscr, '|','-'); 
   
 /*
@@ -544,8 +593,10 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   if (isdigit(str[0]) == 0 || isdigit(str[1]) == 0) {
     printw("wa");
   } else {
+    if (utc_is_stale) setDisabled();
     addch(str[0]);
     addch(str[1]);
+    if (utc_is_stale) normalText();
   }
 
   movemacro(5,23);
@@ -1284,13 +1335,21 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   move(nextline,nextcol);
   printLabel("ACU time:");
   move(nextline,nextcol+10);
+  if (acu_time_is_stale) setDisabled();
   printw("%d", *acuDay);
+  if (acu_time_is_stale) normalText();
   move(nextline,nextcol+15);
+  if (acu_time_is_stale) setDisabled();
   printw("%02d:", acuH);
+  if (acu_time_is_stale) normalText();
   move(nextline,nextcol+18);
+  if (acu_time_is_stale) setDisabled();
   printw("%02d:", acuM);
+  if (acu_time_is_stale) normalText();
   move(nextline,nextcol+21);
+  if (acu_time_is_stale) setDisabled();
   printw("%04.2f", acuS);
+  if (acu_time_is_stale) normalText();
   nextline++;
   move(nextline,nextcol);
 
@@ -1430,7 +1489,9 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 
     move(nextline,nextcol);
     printLabel("Hexapod  UpTime: ");
-    printw("%.1f",hp.sysUptime); 
+    if (hp_uptime_is_stale) setDisabled();
+    printw("%.1f",hp.sysUptime);
+    if (hp_uptime_is_stale) normalText(); 
     nextline++;
     move(nextline,nextcol);
     printLabel("-----------CMD-------------");
