@@ -577,16 +577,20 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   if (isdigit(str[0]) == 0 || isdigit(str[1]) == 0) {
     printw("wa");
   } else {
+    if (utc_is_stale) setDisabled();
     addch(str[0]);
     addch(str[1]);
+    if (utc_is_stale) normalText();
   }
   movemacro(5,16);
   af(&utcm,str);
   if (isdigit(str[0]) == 0 || isdigit(str[1]) == 0) {
     printw("wa");
   } else {
+    if (utc_is_stale) setDisabled();
     addch(str[0]);
     addch(str[1]);
+    if (utc_is_stale) normalText();
   }
   movemacro(5,19);
   af(&utcsi,str);
