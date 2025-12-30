@@ -24,6 +24,8 @@ NAP 30 Apr 2021: rearranged main page display for clarity.
 #include "antMonitor.h"
 #include <zmq.h>
 #include "hpParameters.h"
+#include <hiredis.h>
+
 #define DSM_HOST "gltacc"
 #define DEBUG 0
 #if DEBUG
@@ -42,8 +44,15 @@ NAP 30 Apr 2021: rearranged main page display for clarity.
 #define COLOR_DISABLED 5
 #define COLOR_VARIANT  6
 
+#define REDIS_SERVER "192.168.1.141"
+#define REDIS_PORT 6379
+
 extern struct pmacInfo getPMACinfo();
 int pmacStringToInt(char* pmacString);
+
+extern char redisData[1024];
+extern redisContext *redisC;
+extern redisReply *redisResp;
 
 void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 	double *ra_disp,double *dec_disp, 
@@ -83,6 +92,7 @@ hps hp;
 
 
 int antDisplay(int ant, int icount) {
+
   char dummyByte;
   float plsAzRdg;
   char messg[100];
@@ -122,6 +132,7 @@ int antDisplay(int ant, int icount) {
  /* weather variables from DSM */
   float temperature,pressure,humidity,windspeed,winddir;
   double tamb,tambk,ws,wsp,windchill,dftemp;
+  double f_p, e_w, e_w_p ,e_p, lnTerm, t_d, t_f;
   double numSum,denSum,lne_s;
 
 /* radiometer variables (only tau for now) */
@@ -283,6 +294,8 @@ printf("Time: %d\n",acuStatusResp.timeOfDay);
 /* calculating dew or frost point temperature */
 /* formulae and constants are from Bob Hardy, Thunder Scientific Corp.
 report: ITS-90 Formulations for vapor pressure, frostpoint temp., dewpoint temp. */
+
+/***
 tambk=tamb+273.15;
 if (tamb <= 0.) {
 lne_s =  0.67063522*log(tambk)-5.866426e3/tambk +22.3870244+1.39387003e-2*tambk-
@@ -296,6 +309,21 @@ numSum=2.0798233e2-2.0156028*lne_s+4.6778925e-1*pow(lne_s,2.)-9.2288067e-6*pow(l
 denSum=1.0-1.3319669e-1*lne_s+5.6577518e-3*lne_s*lne_s-7.5172865e-5*pow(lne_s,3.);
 }
 dftemp=(numSum/denSum)-273.15;
+***/
+
+/*Revised calculation of dew/frost point temperatures, following Pierre's suggestion
+to use the JCOM Tech report No. 63, equations 2, 3a and 3b...- emails from Jan and Feb 2022 from Pierre */
+
+f_p = 1.0016 + 3.15e-6 * (double)pressure - 0.074 / (double)pressure; /* eqn 4 */
+e_w = 6.112 * exp(17.62 * tamb/(243.12 + tamb)); /* eqn 3a */
+e_w_p = f_p * e_w; /* eqn 3b */
+e_p = (double)humidity / 100. * e_w_p; /* eqn 2 */
+lnTerm = log(e_p/(6.112 * f_p));
+t_d = 243.12 * lnTerm /(17.62 - lnTerm); /* eqn 6a */
+t_f = 272.62 * lnTerm /(22.46 - lnTerm); /* eqn 6b */
+if (t_d>=0.) dftemp = t_d;
+if (t_d<0.) dftemp = t_f;
+
 
 	  screen(source, &lst_disp, &utc_disp, &tjd_disp, &ra_disp, &dec_disp,
 		 &ra_cat_disp, &dec_cat_disp,
@@ -888,10 +916,11 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   refresh();
 #endif
   
-  nextline=30;
+  nextline=23;
   nextcol=2;
   move(nextline,nextcol);
-   printLabel("Motor currents (A):");
+   printLabel("Motors I(A):");
+  nextcol = 5;
   move(nextline+1,nextcol);
    printLabel("az1: ");
    printw("%.2f ",*azm1i);
@@ -967,10 +996,17 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   printw("%s",lastcommand);
   nextline++;
   move(nextline,nextcol);
-  printLabel("ACU error msg:");
-  move(nextline,nextcol+14);
+  printLabel("ACU error msg: ");
   printw("%s",acuErrorMessage);
 
+
+  sprintf(redisData,"GET %s","2opmsg"); 
+  redisResp = redisCommand(redisC,redisData);
+  nextline++;
+  move(nextline,nextcol);
+  printLabel("2op msg: ");
+  printw("%s",redisResp->str);
+  freeReplyObject(redisResp);
 
 
  /* 
@@ -1038,9 +1074,9 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
         if(*acuModeAz==0xe) addstr("Maint. Stow");
         if(*acuModeAz==0x4e) addstr("Stow");
         if(*acuModeAz==0x26) addstr("Unstow");
-        if(*acuModeAz==0x8) addstr("Az Two line track ");
-        if(*acuModeAz==0x9) addstr("Az Star Track ");
-        if(*acuModeAz==0x29) addstr("Az Sun Track ");
+        if(*acuModeAz==0x8) addstr("Two line ");
+        if(*acuModeAz==0x9) addstr("Star Track ");
+        if(*acuModeAz==0x29) addstr("Sun Track ");
 
   move(nextline,nextcol+17);
 
@@ -1055,7 +1091,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
         if(*acuModeEl==0xe) addstr("Maint. Stow");
         if(*acuModeEl==0x4e) addstr("Stow ");
         if(*acuModeEl==0x26) addstr("Unstow");
-        if(*acuModeEl==0x8) addstr("Two line track ");
+        if(*acuModeEl==0x8) addstr("Two line ");
         if(*acuModeEl==0x9) addstr("Star Track ");
         if(*acuModeEl==0x29) addstr("Sun Track ");
 
@@ -1069,83 +1105,83 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 
         if(azServoStatus[0]&1) {
 	move(nextline,nextcol);
-        addstr("Emergency limit");
+        addstr("emergency lmt");
         nextline++;
         }
         if(azServoStatus[0]&2) {
 	move(nextline,nextcol);
-        addstr("Operating limit ccw");
+        addstr("oper. lmt ccw");
         nextline++;
         }
         if(azServoStatus[0]&4) {
 	move(nextline,nextcol);
-        addstr("Operating limit cw");
+        addstr("oper. lmt cw");
         nextline++;
         }
         if(azServoStatus[0]&8) {
 	move(nextline,nextcol);
-        addstr("Prelimit ccw");
+        addstr("prelimit ccw");
         nextline++;
         }
         if(azServoStatus[0]&16) {
 	move(nextline,nextcol);
-        addstr("Prelimit cw");
+        addstr("prelimit cw");
         nextline++;
         }
         if(azServoStatus[0]&32) {
 	move(nextline,nextcol);
-        addstr("stow position");
+        addstr("stow posn");
         nextline++;
         }
         if(azServoStatus[0]&64) {
 	move(nextline,nextcol);
-        addstr("stow pin inserted");
+        addstr("stowPin insertd");
         nextline++;
         }
         if(azServoStatus[0]&128) {
 	move(nextline,nextcol);
-        addstr("stow pin retracted");
+        addstr("stowPin retractd");
         nextline++;
         }
 
         if(azServoStatus[1]&1) {
 	move(nextline,nextcol);
-        addstr("Servo failure");
+        addstr("servo fail");
         nextline++;
         }
         if(azServoStatus[1]&2) {
 	move(nextline,nextcol);
-        addstr("Brake failure");
+        addstr("brake fail");
         nextline++;
         }
         if(azServoStatus[1]&4) {
 	move(nextline,nextcol);
-        addstr("Encoder failure");
+        addstr("encoder fail");
         nextline++;
         }
         if(azServoStatus[1]&8) {
 	move(nextline,nextcol);
-        addstr("Auxiliary mode ");
+        addstr("aux mode ");
         nextline++;
         }
         if(azServoStatus[1]&16) {
 	move(nextline,nextcol);
-        addstr("Motion failure");
+        addstr("motion fail");
         nextline++;
         }
         if(azServoStatus[1]&32) {
 	move(nextline,nextcol);
-        addstr("CAN bus failure");
+        addstr("CANbus fail");
         nextline++;
         }
         if(azServoStatus[1]&64) {
 	move(nextline,nextcol);
-        addstr("Axis disabled");
+        addstr("axis disabld");
         nextline++;
         }
         if(azServoStatus[1]&128) {
 	move(nextline,nextcol);
-        addstr("Local mode");
+        addstr("local mode");
         nextline++;
         }
 
@@ -1155,89 +1191,89 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 
         if(elServoStatus[0]&1) {
 	move(nextline,nextcol);
-        addstr("Emergency limit");
+        addstr("emergency lmt");
         nextline++;
         }
         if(elServoStatus[0]&2) {
 	move(nextline,nextcol);
-        addstr("Operating limit ccw");
+        addstr("oper lmt ccw");
         nextline++;
         }
         if(elServoStatus[0]&4) {
 	move(nextline,nextcol);
-        addstr("Operating limit cw");
+        addstr("oper lmt cw");
         nextline++;
         }
         if(elServoStatus[0]&8) {
 	move(nextline,nextcol);
-        addstr("Prelimit ccw");
+        addstr("prelimit ccw");
         nextline++;
         }
         if(elServoStatus[0]&16) {
 	move(nextline,nextcol);
-        addstr("Prelimit cw");
+        addstr("prelimit cw");
         nextline++;
         }
         if(elServoStatus[0]&32) {
 	move(nextline,nextcol);
-        addstr("stow position");
+        addstr("stow postn");
         nextline++;
         }
         if(elServoStatus[0]&64) {
 	move(nextline,nextcol);
-        addstr("stow pin inserted");
+        addstr("stowPin insertd");
         nextline++;
         }
         if(elServoStatus[0]&128) {
 	move(nextline,nextcol);
-        addstr("stow pin retracted");
+        addstr("stowPin retractd");
         nextline++;
         }
 
         if(elServoStatus[1]&1) {
 	move(nextline,nextcol);
-        addstr("Servo failure");
+        addstr("servo fail");
         nextline++;
         }
         if(elServoStatus[1]&2) {
 	move(nextline,nextcol);
-        addstr("Brake failure");
+        addstr("brake fail");
         nextline++;
         }
         if(elServoStatus[1]&4) {
 	move(nextline,nextcol);
-        addstr("Encoder failure");
+        addstr("encoder fail");
         nextline++;
         }
         if(elServoStatus[1]&8) {
 	move(nextline,nextcol);
-        addstr("Auxiliary mode ");
+        addstr("aux mode ");
         nextline++;
         }
         if(elServoStatus[1]&16) {
 	move(nextline,nextcol);
-        addstr("Motion failure");
+        addstr("Motion fail");
         nextline++;
         }
         if(elServoStatus[1]&32) {
 	move(nextline,nextcol);
-        addstr("CAN bus failure");
+        addstr("CANbus fail");
         nextline++;
         }
         if(elServoStatus[1]&64) {
 	move(nextline,nextcol);
-        addstr("Axis disabled");
+        addstr("axis disabld");
         nextline++;
         }
         if(elServoStatus[1]&128) {
 	move(nextline,nextcol);
-        addstr("Local mode");
+        addstr("local mode");
         nextline++;
         }
 
 /* System Status */
 
-  nextline=2;
+  nextline=30;
   nextcol=49;
   move(nextline,nextcol);
   printLabel("System status:");
@@ -1384,8 +1420,13 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 	printEnabled("Shutter fan on");
 	nextline++;
 	}
+
 /* display Hexapod variables */
+/*
     nextline=nextline+4;
+*/
+
+    nextline = 11;
 
     move(nextline,nextcol);
     printLabel("Hexapod  UpTime: ");
