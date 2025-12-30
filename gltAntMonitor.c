@@ -504,10 +504,10 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     prev_hp_sysUptime = hp.sysUptime;
   }
 
-  /* Check for staleness of ACU time */
+  /* Check for staleness of ACU time - use higher threshold to avoid false positives */
   if (prev_acuTime == acuTime) {
     acu_time_stale_count++;
-    if (acu_time_stale_count >= 2) {
+    if (acu_time_stale_count >= 10) {
       acu_time_is_stale = 1;
     }
   } else {
