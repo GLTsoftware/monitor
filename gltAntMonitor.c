@@ -1065,11 +1065,6 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 
     for (i = numMessages - 1; i >= 0; i--) {
       move(nextline,nextcol);
-      if (i == numMessages - 1) {
-        printLabel("2op msg: ");
-      } else {
-        printw("         ");
-      }
       if (redisResp->element[i]->str != NULL) {
         printw("%s", redisResp->element[i]->str);
       }
