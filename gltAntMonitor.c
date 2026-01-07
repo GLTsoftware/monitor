@@ -1097,6 +1097,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 
           while (pos < msgLen && linesUsed < maxLines) {
             move(nextline,nextcol);
+            clrtoeol();
             char lineBuffer[128];
             int lineLen = (msgLen - pos > maxLineLen) ? maxLineLen : (msgLen - pos);
 
@@ -1126,12 +1127,20 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
           /* Fallback if parsing fails - display as-is */
           if (linesUsed < maxLines) {
             move(nextline,nextcol);
+            clrtoeol();
             printw("%s", msg);
             nextline++;
             linesUsed++;
           }
         }
       }
+    }
+    /* Clear any remaining lines to remove old text */
+    while (linesUsed < maxLines) {
+      move(nextline,nextcol);
+      clrtoeol();
+      nextline++;
+      linesUsed++;
     }
   }
   freeReplyObject(redisResp);
