@@ -1064,18 +1064,18 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     int i;
 
     for (i = numMessages - 1; i >= 0; i--) {
-      move(nextline,nextcol);
       if (redisResp->element[i]->str != NULL) {
         char *msg = redisResp->element[i]->str;
         struct tm tm_msg;
-        char displayMsg[256];
-        char restOfMsg[256];
+        char restOfMsg[512];
+        char username[50];
+        char messageText[512];
 
         /* Parse the stored format: YYYY-MM-DD HH:MM:SS (username) message */
-        if (sscanf(msg, "%d-%d-%d %d:%d:%d %[^\n]",
+        if (sscanf(msg, "%d-%d-%d %d:%d:%d (%49[^)]) %[^\n]",
                    &tm_msg.tm_year, &tm_msg.tm_mon, &tm_msg.tm_mday,
                    &tm_msg.tm_hour, &tm_msg.tm_min, &tm_msg.tm_sec,
-                   restOfMsg) == 7) {
+                   username, messageText) == 8) {
           /* Adjust tm structure */
           tm_msg.tm_year -= 1900;
           tm_msg.tm_mon -= 1;
@@ -1087,16 +1087,44 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
           char dayOfWeek[4];
           strftime(dayOfWeek, sizeof(dayOfWeek), "%a", tm_ptr);
 
-          /* Display as: Day HH:MM:SS (username) message */
-          snprintf(displayMsg, sizeof(displayMsg), "%s %02d:%02d:%02d %s",
-                   dayOfWeek, tm_msg.tm_hour, tm_msg.tm_min, tm_msg.tm_sec, restOfMsg);
-          printw("%s", displayMsg);
+          /* Split message into lines if longer than 60 chars */
+          int msgLen = strlen(messageText);
+          int maxLineLen = 60;
+          int pos = 0;
+
+          while (pos < msgLen) {
+            move(nextline,nextcol);
+            char lineBuffer[128];
+            int lineLen = (msgLen - pos > maxLineLen) ? maxLineLen : (msgLen - pos);
+
+            /* Try to break at a space if possible */
+            if (msgLen - pos > maxLineLen) {
+              int breakPos = lineLen;
+              while (breakPos > 0 && messageText[pos + breakPos] != ' ') {
+                breakPos--;
+              }
+              if (breakPos > maxLineLen * 0.7) {  /* Only break at space if it's not too far back */
+                lineLen = breakPos;
+              }
+            }
+
+            /* Print timestamp and username on each line */
+            snprintf(lineBuffer, sizeof(lineBuffer), "%s %02d:%02d:%02d (%s) %.*s",
+                     dayOfWeek, tm_msg.tm_hour, tm_msg.tm_min, tm_msg.tm_sec,
+                     username, lineLen, messageText + pos);
+            printw("%s", lineBuffer);
+
+            pos += lineLen;
+            if (pos < msgLen && messageText[pos] == ' ') pos++;  /* Skip the space */
+            nextline++;
+          }
         } else {
           /* Fallback if parsing fails - display as-is */
+          move(nextline,nextcol);
           printw("%s", msg);
+          nextline++;
         }
       }
-      nextline++;
     }
   }
   freeReplyObject(redisResp);
