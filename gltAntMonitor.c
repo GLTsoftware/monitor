@@ -1066,7 +1066,35 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     for (i = numMessages - 1; i >= 0; i--) {
       move(nextline,nextcol);
       if (redisResp->element[i]->str != NULL) {
-        printw("%s", redisResp->element[i]->str);
+        char *msg = redisResp->element[i]->str;
+        struct tm tm_msg;
+        char displayMsg[256];
+        char restOfMsg[256];
+
+        /* Parse the stored format: YYYY-MM-DD HH:MM:SS (username) message */
+        if (sscanf(msg, "%d-%d-%d %d:%d:%d %[^\n]",
+                   &tm_msg.tm_year, &tm_msg.tm_mon, &tm_msg.tm_mday,
+                   &tm_msg.tm_hour, &tm_msg.tm_min, &tm_msg.tm_sec,
+                   restOfMsg) == 7) {
+          /* Adjust tm structure */
+          tm_msg.tm_year -= 1900;
+          tm_msg.tm_mon -= 1;
+          tm_msg.tm_isdst = -1;
+
+          /* Convert to day of week */
+          time_t t = mktime(&tm_msg);
+          struct tm *tm_ptr = localtime(&t);
+          char dayOfWeek[4];
+          strftime(dayOfWeek, sizeof(dayOfWeek), "%a", tm_ptr);
+
+          /* Display as: Day HH:MM:SS (username) message */
+          snprintf(displayMsg, sizeof(displayMsg), "%s %02d:%02d:%02d %s",
+                   dayOfWeek, tm_msg.tm_hour, tm_msg.tm_min, tm_msg.tm_sec, restOfMsg);
+          printw("%s", displayMsg);
+        } else {
+          /* Fallback if parsing fails - display as-is */
+          printw("%s", msg);
+        }
       }
       nextline++;
     }
