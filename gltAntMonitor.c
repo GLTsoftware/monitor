@@ -1055,12 +1055,27 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   printw("%s",acuErrorMessage);
 
 
-  sprintf(redisData,"GET %s","2opmsg"); 
+  sprintf(redisData,"LRANGE %s 0 3","2opmsg");
   redisResp = redisCommand(redisC,redisData);
   nextline++;
-  move(nextline,nextcol);
-  printLabel("2op msg: ");
-  printw("%s",redisResp->str);
+
+  if (redisResp->type == REDIS_REPLY_ARRAY) {
+    int numMessages = redisResp->elements;
+    int i;
+
+    for (i = numMessages - 1; i >= 0; i--) {
+      move(nextline,nextcol);
+      if (i == numMessages - 1) {
+        printLabel("2op msg: ");
+      } else {
+        printw("         ");
+      }
+      if (redisResp->element[i]->str != NULL) {
+        printw("%s", redisResp->element[i]->str);
+      }
+      nextline++;
+    }
+  }
   freeReplyObject(redisResp);
 
 
