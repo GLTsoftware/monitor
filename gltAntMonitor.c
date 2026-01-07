@@ -1055,15 +1055,18 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   printw("%s",acuErrorMessage);
 
 
-  sprintf(redisData,"LRANGE %s 0 7","2opmsg");
+  sprintf(redisData,"LRANGE %s 0 5","2opmsg");
   redisResp = redisCommand(redisC,redisData);
   nextline++;
 
   if (redisResp->type == REDIS_REPLY_ARRAY) {
     int numMessages = redisResp->elements;
     int i;
+    int linesUsed = 0;
+    int maxLines = 8;
 
     for (i = numMessages - 1; i >= 0; i--) {
+      if (linesUsed >= maxLines) break;
       if (redisResp->element[i]->str != NULL) {
         char *msg = redisResp->element[i]->str;
         struct tm tm_msg;
@@ -1092,7 +1095,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
           int maxLineLen = 60;
           int pos = 0;
 
-          while (pos < msgLen) {
+          while (pos < msgLen && linesUsed < maxLines) {
             move(nextline,nextcol);
             char lineBuffer[128];
             int lineLen = (msgLen - pos > maxLineLen) ? maxLineLen : (msgLen - pos);
@@ -1117,12 +1120,16 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
             pos += lineLen;
             if (pos < msgLen && messageText[pos] == ' ') pos++;  /* Skip the space */
             nextline++;
+            linesUsed++;
           }
         } else {
           /* Fallback if parsing fails - display as-is */
-          move(nextline,nextcol);
-          printw("%s", msg);
-          nextline++;
+          if (linesUsed < maxLines) {
+            move(nextline,nextcol);
+            printw("%s", msg);
+            nextline++;
+            linesUsed++;
+          }
         }
       }
     }
