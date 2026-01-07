@@ -1055,7 +1055,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   printw("%s",acuErrorMessage);
 
 
-  sprintf(redisData,"LRANGE %s 0 3","2opmsg");
+  sprintf(redisData,"LRANGE %s 0 7","2opmsg");
   redisResp = redisCommand(redisC,redisData);
   nextline++;
 
