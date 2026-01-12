@@ -1,4 +1,4 @@
-CC = gcc -D LINUX -I$(GLOBALINC)
+CC = gcc -D LINUX -I$(GLOBALINC) -I/usr/local/include
 CFLAGS = -g -O -Wall
 LFLAGS = -L/usr/local/lib
 #LIB = -lrt $(COMMONLIB)/rm.o libdsm.a $(COMMONLIB)/commonLib -lcurses -lm

@@ -52,7 +52,7 @@ NAP 19 Dec 2024. Added s page for satellite two line display
 #include <string.h>
 #include <stdlib.h>
 #include <getopt.h>
-#include <hiredis.h>
+#include <hiredis/hiredis.h>
 /*
 #include <pthread.h>
 */
