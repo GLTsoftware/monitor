@@ -51,6 +51,7 @@ NAP 19 Dec 2024. Added s page for satellite two line display
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
+#include <getopt.h>
 #include <hiredis.h>
 /*
 #include <pthread.h>
@@ -90,6 +91,7 @@ HOME_DISPLAY   /* 0 */
 /* redis server (gltobscon) */
 #define REDIS_SERVER "192.168.1.141"
 #define REDIS_PORT 6379
+#define MAX_MESSAGES 100
 
 
 #include "commandMonitor.h"
@@ -111,6 +113,7 @@ double sunDistance(double az1,double el1,double az2,double el2);
 int user, lastUser;
 double radian=0.01745329;
 struct termio tio, tin;
+char *username = NULL;  /* username for 2op messages */
 int beepFlag=1;
 int antsAvailable[MAX_NUMBER_ANTENNAS+1] = {0,0,0,0,0,0,0,0,0,0,0};
 int deadAntennas[MAX_NUMBER_ANTENNAS+1] = {0,0,0,0,0,0,0,0,0,1,1};
@@ -171,6 +174,66 @@ extern void sat2LEpage(int count);
  * upper right corner */
 int upperRightWindow = UR_MESSAGES;
 
+/* Function to send a 2op message */
+void send2opMessage(void) {
+    char message[500] = {0};
+    char formatted_message[256];
+    time_t now;
+    struct tm *tm_info;
+    char timestamp[20];
+    redisReply *reply;
+
+    /* Temporarily restore canonical mode for message input */
+    ioctl(0, TCSETA, &tio);
+
+    /* Clear screen and prompt for message */
+    clear();
+    move(2, 2);
+    printw("Enter 2op message (press Enter when done): ");
+    refresh();
+    echo();
+
+    /* Read the message from user */
+    getnstr(message, sizeof(message) - 1);
+
+    noecho();
+
+    /* Check if message is empty */
+    if (strlen(message) == 0) {
+        /* Restore non-canonical mode and return */
+        ioctl(0, TCSETA, &tin);
+        clear();
+        return;
+    }
+
+    /* Get current timestamp */
+    now = time(NULL);
+    tm_info = localtime(&now);
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
+
+    /* Format the complete message with timestamp and username */
+    snprintf(formatted_message, sizeof(formatted_message), "%s (%s) %s",
+             timestamp, username, message);
+
+    /* Push the message to Redis list */
+    reply = redisCommand(redisC, "LPUSH 2opmsg %s", formatted_message);
+    if (reply != NULL) {
+        freeReplyObject(reply);
+
+        /* Trim the list to keep only the last MAX_MESSAGES entries */
+        reply = redisCommand(redisC, "LTRIM 2opmsg 0 %d", MAX_MESSAGES - 1);
+        if (reply != NULL) {
+            freeReplyObject(reply);
+        }
+    }
+
+    /* Restore non-canonical mode */
+    ioctl(0, TCSETA, &tin);
+
+    /* Clear screen for next display update */
+    clear();
+}
+
 
 main(int argc, char *argv[])
 {
@@ -182,17 +245,38 @@ main(int argc, char *argv[])
   char *outputFile = NULL;
   struct utsname unamebuf;
   int rms;
-  struct sigaction action, old_action; 
+  struct sigaction action, old_action;
   int sigactionInt;
   int icount=0;
   int firstUpdate = TRUE;
-  int  rc; 
+  int  rc;
   int startDay;
   int message = 0;
   int ignoreFlag;
   struct stat messageStat, oldMessageStat;
+  int opt;
 
-  
+  /* Parse command line options */
+  static struct option long_options[] = {
+      {"user", required_argument, 0, 'u'},
+      {0, 0, 0, 0}
+  };
+
+  while ((opt = getopt_long(argc, argv, "u:", long_options, NULL)) != -1) {
+      switch (opt) {
+          case 'u':
+              username = optarg;
+              break;
+          default:
+              fprintf(stderr, "Usage: %s [-u|--user username]\n", argv[0]);
+              exit(EXIT_FAILURE);
+      }
+  }
+
+  /* Set default username if not provided */
+  if (username == NULL) {
+      username = "anon";
+  }
 
   /* The following variables are for the default Tilt flag read from
      the pointing model files */
@@ -326,6 +410,11 @@ main(int argc, char *argv[])
 
      case 's':
      ant = SAT2LE_DISPLAY;
+     icount = 1;
+     break;
+
+     case '/':
+     send2opMessage();
      icount = 1;
      break;
 

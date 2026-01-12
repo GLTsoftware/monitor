@@ -2,7 +2,7 @@ CC = gcc -D LINUX -I$(GLOBALINC)
 CFLAGS = -g -O -Wall
 LFLAGS = -L/usr/local/lib
 #LIB = -lrt $(COMMONLIB)/rm.o libdsm.a $(COMMONLIB)/commonLib -lcurses -lm
-LIB = /global/dsm64/libdsm.a -lpthread -lrt -lcurses -lm -lzmq
+LIB = /global/dsm64/libdsm.a -lpthread -lrt -lcurses -lm -lzmq -lhiredis
 
 GLOBALLIB = /global/dsm64
 GLOBALINC = /global/dsm64

@@ -15,6 +15,7 @@ struct page_descriptions {
     {'m', 1, "Metrology data"},
     {'M', 1, "Maser data"},
     {'P', 1, "Current pointing model"},
+    {'/', 1, "Send a 2op message"},
     {'q', 1, "Exit"},
 };
 #define NUM_PD (sizeof(pd) / sizeof(pd[0]))
