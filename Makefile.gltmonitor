@@ -8,9 +8,9 @@ GLOBALLIB = /global/dsm64
 GLOBALINC = /global/dsm64
 OBSBIN = ./
 
-SOURCES = gltmonitor.c gltAntMonitor.c help.c metrology.c receivers.c maser.c pointingModel.c sat2LE.c
+SOURCES = gltmonitor.c gltAntMonitor.c help.c metrology.c receivers.c maser.c pointingModel.c sat2LE.c op2msg.c
 
-OBJECTS = gltmonitor.o gltAntMonitor.o help.o metrology.o receivers.o maser.o getHPstatus.o getPMACinfo.o pointingModel.o sat2LE.o
+OBJECTS = gltmonitor.o gltAntMonitor.o help.o metrology.o receivers.o maser.o getHPstatus.o getPMACinfo.o pointingModel.o sat2LE.o op2msg.o
 
 all: gltmonitor
 

@@ -68,6 +68,7 @@ NAP 19 Dec 2024. Added s page for satellite two line display
 
 enum {
 /* to add a page, insert a new name at the top and decrement the initializor */
+TWOOP_DISPLAY,
 SAT2LE_DISPLAY,
 POINTING_MODEL_DISPLAY,
 RECEIVERS_DISPLAY,
@@ -141,6 +142,7 @@ redisReply *redisResp;
 struct timeval redisTimeout = {1,500000}; /*1.5 seconds for redis timeout */
 
 
+int twoOpScrollOffset = 0; /* scroll position for the '2' 2op messages page */
 int smainitMode = 0; /* Set to 1 when displaying smainit pages */
 int antMode = 0;
 int commandMode = 0;
@@ -169,6 +171,7 @@ extern void receiversPage(int count);
 extern void maserPage(int count);
 extern void pointingModelPage(int count);
 extern void sat2LEpage(int count);
+extern void twoOpPage(int count);
 
 /* on the wide 'a' page, this tells which window to start with in the
  * upper right corner */
@@ -413,6 +416,26 @@ main(int argc, char *argv[])
      icount = 1;
      break;
 
+     case '2':
+     ant = TWOOP_DISPLAY;
+     twoOpScrollOffset = 0;  /* reset to newest messages */
+     icount = 1;
+     break;
+
+     case '+':
+     if (ant == TWOOP_DISPLAY) {
+         if (twoOpScrollOffset > 0) twoOpScrollOffset--;
+         icount = 1;
+     }
+     break;
+
+     case '-':
+     if (ant == TWOOP_DISPLAY) {
+         twoOpScrollOffset++;
+         icount = 1;
+     }
+     break;
+
      case '/':
      send2opMessage();
      icount = 1;
@@ -434,6 +457,8 @@ main(int argc, char *argv[])
           pointingModelPage(icount);
           } else if (ant == SAT2LE_DISPLAY) {
           sat2LEpage(icount);
+          } else if (ant == TWOOP_DISPLAY) {
+          twoOpPage(icount);
           }
 	sleep(delay);
   }				/* this is the big while loop */

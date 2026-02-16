@@ -16,6 +16,7 @@ struct page_descriptions {
     {'M', 1, "Maser data"},
     {'P', 1, "Current pointing model"},
     {'/', 1, "Send a 2op message"},
+    {'2', 1, "2op messages log page (+/- to scroll newer/older)"},
     {'q', 1, "Exit"},
 };
 #define NUM_PD (sizeof(pd) / sizeof(pd[0]))
