@@ -22,7 +22,7 @@
 #include <curses.h>
 #include <hiredis/hiredis.h>
 
-#define N_MSGS_ON_PAGE 12
+#define N_MSGS_ON_PAGE 30
 
 /* Shared globals defined in gltmonitor.c */
 extern redisContext *redisC;
