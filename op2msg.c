@@ -36,13 +36,10 @@ void twoOpPage(int count) {
     redisReply *reply;
     char tbuf[32];
 
-    /* Re-initialise the curses screen when the page is first entered
-     * (count==1) or periodically (every 20 cycles) to repair any
-     * display corruption. */
+    /* Clear the screen when the page is first entered (count==1) or
+     * periodically (every 20 cycles) to repair any display corruption. */
     if ((count % 20) == 1) {
-        initscr();
         clear();
-        move(1, 1);
         refresh();
     }
 
