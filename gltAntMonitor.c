@@ -530,7 +530,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     char pval[128];
     int pcol = 49;
 
-    pr = redisCommand(redisC, "GET glt:project:code");
+    pr = redisCommand(redisC, "GET glt:project:current:code");
     if (pr && pr->type == REDIS_REPLY_STRING && pr->str)
       strncpy(pval, pr->str, sizeof(pval) - 1);
     else
@@ -541,7 +541,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     printLabel("Project code: ");
     printw("%-19s", pval);
 
-    pr = redisCommand(redisC, "GET glt:project:status");
+    pr = redisCommand(redisC, "GET glt:project:current:status");
     if (pr && pr->type == REDIS_REPLY_STRING && pr->str) {
       int st = atoi(pr->str);
       move(3, pcol);
@@ -557,11 +557,11 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     {
       char obs[64] = "", loc[64] = "";
       char combo[128];
-      pr = redisCommand(redisC, "GET glt:project:observer");
+      pr = redisCommand(redisC, "GET glt:project:current:observer");
       if (pr && pr->type == REDIS_REPLY_STRING && pr->str)
         strncpy(obs, pr->str, sizeof(obs) - 1);
       if (pr) freeReplyObject(pr);
-      pr = redisCommand(redisC, "GET glt:project:location");
+      pr = redisCommand(redisC, "GET glt:project:current:location");
       if (pr && pr->type == REDIS_REPLY_STRING && pr->str)
         strncpy(loc, pr->str, sizeof(loc) - 1);
       if (pr) freeReplyObject(pr);
@@ -574,7 +574,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
       printw("%-23s", combo);
     }
 
-    pr = redisCommand(redisC, "GET glt:project:type");
+    pr = redisCommand(redisC, "GET glt:project:current:type");
     if (pr && pr->type == REDIS_REPLY_STRING && pr->str)
       strncpy(pval, pr->str, sizeof(pval) - 1);
     else
@@ -585,7 +585,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     printLabel("Project type: ");
     printw("%-19s", pval);
 
-    pr = redisCommand(redisC, "GET glt:project:receiver");
+    pr = redisCommand(redisC, "GET glt:project:current:receiver");
     if (pr && pr->type == REDIS_REPLY_STRING && pr->str && pr->str[0])
       snprintf(pval, sizeof(pval), "%s GHz", pr->str);
     else
