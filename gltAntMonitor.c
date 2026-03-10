@@ -538,16 +538,19 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     pval[sizeof(pval) - 1] = '\0';
     if (pr) freeReplyObject(pr);
     move(2, pcol);
-    printw("%-33s", pval);
+    printLabel("Project code: ");
+    printw("%-19s", pval);
 
     pr = redisCommand(redisC, "GET glt:project:status");
     if (pr && pr->type == REDIS_REPLY_STRING && pr->str) {
       int st = atoi(pr->str);
       move(3, pcol);
-      printw("%-33s", st == 1 ? "ACTIVE" : st == -1 ? "LOCKOUT" : "idle");
+      printLabel("Status: ");
+      printw("%-25s", st == 1 ? "ACTIVE" : st == -1 ? "LOCKOUT" : "idle");
     } else {
       move(3, pcol);
-      printw("%-33s", "");
+      printLabel("Status: ");
+      printw("%-25s", "");
     }
     if (pr) freeReplyObject(pr);
 
@@ -567,7 +570,8 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
       else
         combo[0] = '\0';
       move(4, pcol);
-      printw("%-33s", combo);
+      printLabel("Observer: ");
+      printw("%-23s", combo);
     }
 
     pr = redisCommand(redisC, "GET glt:project:type");
@@ -578,7 +582,8 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     pval[sizeof(pval) - 1] = '\0';
     if (pr) freeReplyObject(pr);
     move(5, pcol);
-    printw("%-33s", pval);
+    printLabel("Project type: ");
+    printw("%-19s", pval);
 
     pr = redisCommand(redisC, "GET glt:project:receiver");
     if (pr && pr->type == REDIS_REPLY_STRING && pr->str && pr->str[0])
@@ -587,7 +592,8 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
       pval[0] = '\0';
     if (pr) freeReplyObject(pr);
     move(6, pcol);
-    printw("%-33s", pval);
+    printLabel("Receiver: ");
+    printw("%-23s", pval);
 
     move(7, pcol);
     printw("---------------------------------");
