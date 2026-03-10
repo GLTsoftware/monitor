@@ -13,16 +13,16 @@
 #include <hiredis/hiredis.h>
 
 /* Redis keys (must match project.c / endProject.c) */
-#define RKEY_PROJECT_PI          "glt:project:pi"
-#define RKEY_PROJECT_OBSERVER    "glt:project:observer"
-#define RKEY_PROJECT_LOCATION    "glt:project:location"
-#define RKEY_PROJECT_DESCRIPTION "glt:project:description"
-#define RKEY_PROJECT_TYPE        "glt:project:type"
-#define RKEY_PROJECT_RECEIVER    "glt:project:receiver"
-#define RKEY_PROJECT_COMMENT     "glt:project:comment"
-#define RKEY_PROJECT_STATUS      "glt:project:status"
-#define RKEY_PROJECT_CODE        "glt:project:code"
-#define RKEY_PROJECT_TIMESTAMP   "glt:project:timestamp"
+#define RKEY_PROJECT_PI          "glt:project:current:pi"
+#define RKEY_PROJECT_OBSERVER    "glt:project:current:observer"
+#define RKEY_PROJECT_LOCATION    "glt:project:current:location"
+#define RKEY_PROJECT_DESCRIPTION "glt:project:current:description"
+#define RKEY_PROJECT_TYPE        "glt:project:current:type"
+#define RKEY_PROJECT_RECEIVER    "glt:project:current:receiver"
+#define RKEY_PROJECT_COMMENT     "glt:project:current:comment"
+#define RKEY_PROJECT_STATUS      "glt:project:current:status"
+#define RKEY_PROJECT_CODE        "glt:project:current:code"
+#define RKEY_PROJECT_TIMESTAMP   "glt:project:current:timestamp"
 
 /* Shared globals defined in gltmonitor.c */
 extern redisContext *redisC;
