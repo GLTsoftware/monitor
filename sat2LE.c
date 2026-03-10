@@ -4,7 +4,7 @@
 #include <time.h>
 #include <math.h>
 #include <curses.h>
-#include <hiredis.h>
+#include <hiredis/hiredis.h>
 #define DSM_HOST "gltacc"
 #define DSM_SUCCESS 0
 

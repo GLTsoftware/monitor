@@ -24,7 +24,7 @@ NAP 30 Apr 2021: rearranged main page display for clarity.
 #include "antMonitor.h"
 #include <zmq.h>
 #include "hpParameters.h"
-#include <hiredis.h>
+#include <hiredis/hiredis.h>
 
 #define DSM_HOST "gltacc"
 #define DEBUG 0
