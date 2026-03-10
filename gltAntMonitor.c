@@ -528,7 +528,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   {
     redisReply *pr;
     char pval[128];
-    int pcol = 55;
+    int pcol = 49;
 
     pr = redisCommand(redisC, "GET glt:project:code");
     if (pr && pr->type == REDIS_REPLY_STRING && pr->str)
