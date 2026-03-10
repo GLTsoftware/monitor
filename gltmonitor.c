@@ -68,6 +68,7 @@ NAP 19 Dec 2024. Added s page for satellite two line display
 
 enum {
 /* to add a page, insert a new name at the top and decrement the initializor */
+PROJECT_INFO_DISPLAY,
 TWOOP_DISPLAY,
 SAT2LE_DISPLAY,
 POINTING_MODEL_DISPLAY,
@@ -172,6 +173,7 @@ extern void maserPage(int count);
 extern void pointingModelPage(int count);
 extern void sat2LEpage(int count);
 extern void twoOpPage(int count);
+extern void projectInfoPage(int count);
 
 /* on the wide 'a' page, this tells which window to start with in the
  * upper right corner */
@@ -416,6 +418,11 @@ main(int argc, char *argv[])
      icount = 1;
      break;
 
+     case 'i':
+     ant = PROJECT_INFO_DISPLAY;
+     icount = 1;
+     break;
+
      case '2':
      ant = TWOOP_DISPLAY;
      twoOpScrollOffset = 0;  /* reset to newest messages */
@@ -459,6 +466,8 @@ main(int argc, char *argv[])
           sat2LEpage(icount);
           } else if (ant == TWOOP_DISPLAY) {
           twoOpPage(icount);
+          } else if (ant == PROJECT_INFO_DISPLAY) {
+          projectInfoPage(icount);
           }
 	sleep(delay);
   }				/* this is the big while loop */

@@ -11,6 +11,7 @@ struct page_descriptions {
     char *desc;		/* A short description the user will recognize */
 } pd[] = {
     {'a', 1, "Antenna summary (Home page)"},
+    {'i', 1, "Project information"},
     {'h', 1, "or \"?\" This page"},
     {'m', 1, "Metrology data"},
     {'M', 1, "Maser data"},
