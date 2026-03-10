@@ -596,7 +596,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     printw("%-23s", pval);
 
     move(7, pcol);
-    printw("---------------------------------");
+    printLabel("---------------------------------");
   }
 
   movemacro (4,5);
