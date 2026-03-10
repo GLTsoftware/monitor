@@ -524,7 +524,74 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   movemacro(2,2);
   printLabel("GLT Antenna tracking ");
 
- 
+  /* Project info in top-right corner */
+  {
+    redisReply *pr;
+    char pval[128];
+    int pcol = 55;
+
+    pr = redisCommand(redisC, "GET glt:project:code");
+    if (pr && pr->type == REDIS_REPLY_STRING && pr->str)
+      strncpy(pval, pr->str, sizeof(pval) - 1);
+    else
+      pval[0] = '\0';
+    pval[sizeof(pval) - 1] = '\0';
+    if (pr) freeReplyObject(pr);
+    move(2, pcol);
+    printw("%-33s", pval);
+
+    pr = redisCommand(redisC, "GET glt:project:status");
+    if (pr && pr->type == REDIS_REPLY_STRING && pr->str) {
+      int st = atoi(pr->str);
+      move(3, pcol);
+      printw("%-33s", st == 1 ? "ACTIVE" : st == -1 ? "LOCKOUT" : "idle");
+    } else {
+      move(3, pcol);
+      printw("%-33s", "");
+    }
+    if (pr) freeReplyObject(pr);
+
+    {
+      char obs[64] = "", loc[64] = "";
+      char combo[128];
+      pr = redisCommand(redisC, "GET glt:project:observer");
+      if (pr && pr->type == REDIS_REPLY_STRING && pr->str)
+        strncpy(obs, pr->str, sizeof(obs) - 1);
+      if (pr) freeReplyObject(pr);
+      pr = redisCommand(redisC, "GET glt:project:location");
+      if (pr && pr->type == REDIS_REPLY_STRING && pr->str)
+        strncpy(loc, pr->str, sizeof(loc) - 1);
+      if (pr) freeReplyObject(pr);
+      if (obs[0] || loc[0])
+        snprintf(combo, sizeof(combo), "%s @ %s", obs, loc);
+      else
+        combo[0] = '\0';
+      move(4, pcol);
+      printw("%-33s", combo);
+    }
+
+    pr = redisCommand(redisC, "GET glt:project:type");
+    if (pr && pr->type == REDIS_REPLY_STRING && pr->str)
+      strncpy(pval, pr->str, sizeof(pval) - 1);
+    else
+      pval[0] = '\0';
+    pval[sizeof(pval) - 1] = '\0';
+    if (pr) freeReplyObject(pr);
+    move(5, pcol);
+    printw("%-33s", pval);
+
+    pr = redisCommand(redisC, "GET glt:project:receiver");
+    if (pr && pr->type == REDIS_REPLY_STRING && pr->str && pr->str[0])
+      snprintf(pval, sizeof(pval), "%s GHz", pr->str);
+    else
+      pval[0] = '\0';
+    if (pr) freeReplyObject(pr);
+    move(6, pcol);
+    printw("%-33s", pval);
+
+    move(7, pcol);
+    printw("---------------------------------");
+  }
 
   movemacro (4,5);
   printLabel("LST");
