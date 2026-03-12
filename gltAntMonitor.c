@@ -407,7 +407,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   char acu_error,az_brake,az_status[8],el_brake,el_status[8];
   char stow_pin[2],system_status[3];
 
-  int nextline,nextcol;
+  int nextline,nextcol,typerow;
 
   int acuH,acuM;
   double acuS,acuTime;
@@ -558,7 +558,6 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 #define OBS_CHUNK 28
       char obs[64] = "", loc[64] = "";
       char combo[128];
-      int typerow;
       pr = redisCommand(redisC, "GET glt:project:current:observer");
       if (pr && pr->type == REDIS_REPLY_STRING && pr->str)
         strncpy(obs, pr->str, sizeof(obs) - 1);
