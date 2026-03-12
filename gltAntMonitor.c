@@ -555,8 +555,10 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     if (pr) freeReplyObject(pr);
 
     {
+#define OBS_CHUNK 28
       char obs[64] = "", loc[64] = "";
       char combo[128];
+      int typerow;
       pr = redisCommand(redisC, "GET glt:project:current:observer");
       if (pr && pr->type == REDIS_REPLY_STRING && pr->str)
         strncpy(obs, pr->str, sizeof(obs) - 1);
@@ -569,9 +571,25 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
         snprintf(combo, sizeof(combo), "%s @ %s", obs, loc);
       else
         combo[0] = '\0';
+
+      /* Line 1: label + first chunk */
       move(4, pcol);
       printLabel("Observer: ");
-      printw("%-23s", combo);
+      printw("%-28.28s", combo);
+
+      if ((int)strlen(combo) > OBS_CHUNK) {
+        /* Line 2: indent + second chunk (up to 28 chars) */
+        move(5, pcol);
+        printw("          %-28.28s", combo + OBS_CHUNK);
+        /* Clear any leftover chars from a previously longer string */
+        clrtoeol();
+        typerow = 6;
+      } else {
+        /* Clear row 5 in case a previous longer string left residue */
+        move(5, pcol);
+        clrtoeol();
+        typerow = 5;
+      }
     }
 
     pr = redisCommand(redisC, "GET glt:project:current:type");
@@ -581,7 +599,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
       pval[0] = '\0';
     pval[sizeof(pval) - 1] = '\0';
     if (pr) freeReplyObject(pr);
-    move(5, pcol);
+    move(typerow, pcol);
     printLabel("Project type: ");
     printw("%-19s", pval);
 
@@ -591,11 +609,11 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     else
       pval[0] = '\0';
     if (pr) freeReplyObject(pr);
-    move(6, pcol);
+    move(typerow + 1, pcol);
     printLabel("Receiver: ");
     printw("%-23s", pval);
 
-    move(7, pcol);
+    move(typerow + 2, pcol);
     printLabel("---------------------------------");
   }
 
