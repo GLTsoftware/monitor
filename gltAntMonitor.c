@@ -1544,7 +1544,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   nextline=32;
   nextcol=49;
   move(nextline,nextcol);
-  printLabel("System status:");
+  printLabel("ACU status:");
   nextline++;
   move(nextline,nextcol);
   printLabel("--------------");
