@@ -1541,7 +1541,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 
 /* System Status */
 
-  nextline=30;
+  nextline=32;
   nextcol=49;
   move(nextline,nextcol);
   printLabel("System status:");
