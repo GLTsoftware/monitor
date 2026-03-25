@@ -19,6 +19,7 @@
 #define RKEY_PROJECT_DESCRIPTION "glt:project:current:description"
 #define RKEY_PROJECT_TYPE        "glt:project:current:type"
 #define RKEY_PROJECT_RECEIVER    "glt:project:current:receiver"
+#define RKEY_PROJECT_CONTACT     "glt:project:current:contact"
 #define RKEY_PROJECT_COMMENT     "glt:project:current:comment"
 #define RKEY_PROJECT_STATUS      "glt:project:current:status"
 #define RKEY_PROJECT_CODE        "glt:project:current:code"
@@ -45,7 +46,7 @@ void projectInfoPage(int count) {
     int row;
 
     char pi[64], observer[64], location[128], description[512];
-    char type[32], comment[256], code[32], timestamp[32];
+    char type[32], contact[128], comment[256], code[32], timestamp[32];
     char status_str[16], receiver_str[16];
     int status, receiver;
     const char *status_text;
@@ -72,6 +73,7 @@ void projectInfoPage(int count) {
     redis_get_str(redisC, RKEY_PROJECT_DESCRIPTION, description, sizeof(description));
     redis_get_str(redisC, RKEY_PROJECT_TYPE, type, sizeof(type));
     redis_get_str(redisC, RKEY_PROJECT_RECEIVER, receiver_str, sizeof(receiver_str));
+    redis_get_str(redisC, RKEY_PROJECT_CONTACT, contact, sizeof(contact));
     redis_get_str(redisC, RKEY_PROJECT_COMMENT, comment, sizeof(comment));
     redis_get_str(redisC, RKEY_PROJECT_STATUS, status_str, sizeof(status_str));
     redis_get_str(redisC, RKEY_PROJECT_CODE, code, sizeof(code));
@@ -103,20 +105,20 @@ void projectInfoPage(int count) {
     row = 5;
 
     move(row, 4);   clrtoeol();
+    printw("Status       : %s", status_text);
+    row++;
+
+    move(row, 4);   clrtoeol();
     printw("Project Code : %s", code);
     row++;
 
     move(row, 4);   clrtoeol();
-    printw("Status       : %s", status_text);
+    printw("PI           : %s", pi);
     row++;
 
     move(row, 4);   clrtoeol();
     printw("Timestamp    : %s", timestamp);
     row += 2;
-
-    move(row, 4);   clrtoeol();
-    printw("PI           : %s", pi);
-    row++;
 
     move(row, 4);   clrtoeol();
     printw("Observer     : %s", observer);
@@ -135,6 +137,10 @@ void projectInfoPage(int count) {
         printw("Receiver     : %d GHz", receiver);
     else
         printw("Receiver     :");
+    row++;
+
+    move(row, 4);   clrtoeol();
+    printw("Contact      : %s", contact);
     row++;
 
     move(row, 4);   clrtoeol();

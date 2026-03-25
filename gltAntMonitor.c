@@ -530,6 +530,19 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     char pval[128];
     int pcol = 49;
 
+    pr = redisCommand(redisC, "GET glt:project:current:status");
+    if (pr && pr->type == REDIS_REPLY_STRING && pr->str) {
+      int st = atoi(pr->str);
+      move(2, pcol);
+      printLabel("Status: ");
+      printw("%-25s", st == 1 ? "ACTIVE" : st == -1 ? "LOCKOUT" : "idle");
+    } else {
+      move(2, pcol);
+      printLabel("Status: ");
+      printw("%-25s", "");
+    }
+    if (pr) freeReplyObject(pr);
+
     pr = redisCommand(redisC, "GET glt:project:current:code");
     if (pr && pr->type == REDIS_REPLY_STRING && pr->str)
       strncpy(pval, pr->str, sizeof(pval) - 1);
@@ -537,22 +550,20 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
       pval[0] = '\0';
     pval[sizeof(pval) - 1] = '\0';
     if (pr) freeReplyObject(pr);
-    move(2, pcol);
+    move(3, pcol);
     printLabel("Project code: ");
     printw("%-19s", pval);
 
-    pr = redisCommand(redisC, "GET glt:project:current:status");
-    if (pr && pr->type == REDIS_REPLY_STRING && pr->str) {
-      int st = atoi(pr->str);
-      move(3, pcol);
-      printLabel("Status: ");
-      printw("%-25s", st == 1 ? "ACTIVE" : st == -1 ? "LOCKOUT" : "idle");
-    } else {
-      move(3, pcol);
-      printLabel("Status: ");
-      printw("%-25s", "");
-    }
+    pr = redisCommand(redisC, "GET glt:project:current:pi");
+    if (pr && pr->type == REDIS_REPLY_STRING && pr->str)
+      strncpy(pval, pr->str, sizeof(pval) - 1);
+    else
+      pval[0] = '\0';
+    pval[sizeof(pval) - 1] = '\0';
     if (pr) freeReplyObject(pr);
+    move(4, pcol);
+    printLabel("Project PI: ");
+    printw("%-21s", pval);
 
     {
 #define OBS_CHUNK 28
@@ -572,22 +583,22 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
         combo[0] = '\0';
 
       /* Line 1: label + first chunk */
-      move(4, pcol);
+      move(5, pcol);
       printLabel("Observer: ");
       printw("%-28.28s", combo);
 
       if ((int)strlen(combo) > OBS_CHUNK) {
         /* Line 2: indent + second chunk (up to 28 chars) */
-        move(5, pcol);
+        move(6, pcol);
         printw("          %-28.28s", combo + OBS_CHUNK);
         /* Clear any leftover chars from a previously longer string */
         clrtoeol();
-        typerow = 6;
+        typerow = 7;
       } else {
-        /* Clear row 5 in case a previous longer string left residue */
-        move(5, pcol);
+        /* Clear row 6 in case a previous longer string left residue */
+        move(6, pcol);
         clrtoeol();
-        typerow = 5;
+        typerow = 6;
       }
     }
 
@@ -612,7 +623,18 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     printLabel("Receiver: ");
     printw("%-23s", pval);
 
+    pr = redisCommand(redisC, "GET glt:project:current:contact");
+    if (pr && pr->type == REDIS_REPLY_STRING && pr->str)
+      strncpy(pval, pr->str, sizeof(pval) - 1);
+    else
+      pval[0] = '\0';
+    pval[sizeof(pval) - 1] = '\0';
+    if (pr) freeReplyObject(pr);
     move(typerow + 2, pcol);
+    printLabel("Contact: ");
+    printw("%-24s", pval);
+
+    move(typerow + 3, pcol);
     printLabel("---------------------------------");
   }
 
