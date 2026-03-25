@@ -621,7 +621,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     printLabel("Receiver: ");
     printw("%-23s", pval);
 
-    pr = redisCommand(redisC, "GET glt:project:current:contact");
+    pr = redisCommand(redisC, "GET glt:project:current:comment");
     if (pr && pr->type == REDIS_REPLY_STRING && pr->str)
       strncpy(pval, pr->str, sizeof(pval) - 1);
     else
