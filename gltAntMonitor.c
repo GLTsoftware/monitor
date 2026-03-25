@@ -524,11 +524,11 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   dsm_read(host,"DSM_ESTOP_BYPASS_L",(char *)&estopBypass, &timestamp);
 */
 
-  /* Receiver DSM reads for main screen display */
-  dsm_read(DSM_HOST,"DSM_RF_FINAL_LO_D",&rfFinalLO,&timestamp);
-  dsm_read(DSM_HOST,"DSM_RF_SYNTH_FREQ_D",&rfSynthFreq,&timestamp);
-  dsm_read(DSM_HOST,"DSM_RF_SYNTH_POWER_D",&rfSynthPower,&timestamp);
-  dsm_read(DSM_HOST,"DSM_RF_CRYOSTAT_COLDHEAD_F",&rfCryostatColdhead,&timestamp);
+  /* Receiver DSM reads for main screen display (RF data lives on gltMandC) */
+  dsm_read("gltMandC","DSM_RF_FINAL_LO_D",&rfFinalLO,&timestamp);
+  dsm_read("gltMandC","DSM_RF_SYNTH_FREQ_D",&rfSynthFreq,&timestamp);
+  dsm_read("gltMandC","DSM_RF_SYNTH_POWER_D",&rfSynthPower,&timestamp);
+  dsm_read("gltMandC","DSM_RF_CRYOSTAT_COLDHEAD_F",&rfCryostatColdhead,&timestamp);
 
   movemacro(2,2);
   printLabel("GLT Antenna tracking ");
