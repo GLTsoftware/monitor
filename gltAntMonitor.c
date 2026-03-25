@@ -427,6 +427,8 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
   int acu_time_is_stale = 0;
 
  int bgColor = COLOR_BLACK;
+  double rfSynthFreq = 0.0, rfSynthPower = 0.0, rfFinalLO = 0.0;
+  float rfCryostatColdhead = 0.0;
 
   start_color();
   init_pair(1,COLOR_RED,COLOR_BLACK); /*red on black */
@@ -521,6 +523,13 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
 /*
   dsm_read(host,"DSM_ESTOP_BYPASS_L",(char *)&estopBypass, &timestamp);
 */
+
+  /* Receiver DSM reads for main screen display */
+  dsm_read(DSM_HOST,"DSM_RF_FINAL_LO_D",&rfFinalLO,&timestamp);
+  dsm_read(DSM_HOST,"DSM_RF_SYNTH_FREQ_D",&rfSynthFreq,&timestamp);
+  dsm_read(DSM_HOST,"DSM_RF_SYNTH_POWER_D",&rfSynthPower,&timestamp);
+  dsm_read(DSM_HOST,"DSM_RF_CRYOSTAT_COLDHEAD_F",&rfCryostatColdhead,&timestamp);
+
   movemacro(2,2);
   printLabel("GLT Antenna tracking ");
 
@@ -602,24 +611,13 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
       }
     }
 
-    pr = redisCommand(redisC, "GET glt:project:current:type");
-    if (pr && pr->type == REDIS_REPLY_STRING && pr->str)
-      strncpy(pval, pr->str, sizeof(pval) - 1);
-    else
-      pval[0] = '\0';
-    pval[sizeof(pval) - 1] = '\0';
-    if (pr) freeReplyObject(pr);
-    move(typerow, pcol);
-    printLabel("Project type: ");
-    printw("%-19s", pval);
-
     pr = redisCommand(redisC, "GET glt:project:current:receiver");
     if (pr && pr->type == REDIS_REPLY_STRING && pr->str && pr->str[0])
       snprintf(pval, sizeof(pval), "%s GHz", pr->str);
     else
       pval[0] = '\0';
     if (pr) freeReplyObject(pr);
-    move(typerow + 1, pcol);
+    move(typerow, pcol);
     printLabel("Receiver: ");
     printw("%-23s", pval);
 
@@ -630,11 +628,32 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
       pval[0] = '\0';
     pval[sizeof(pval) - 1] = '\0';
     if (pr) freeReplyObject(pr);
-    move(typerow + 2, pcol);
+    move(typerow + 1, pcol);
     printLabel("Contact: ");
     printw("%-24s", pval);
 
-    move(typerow + 3, pcol);
+    move(typerow + 2, pcol);
+    printLabel("---------------------------------");
+  }
+
+  /* Receiver info block (rows 11-16, col 49) */
+  {
+    int rcvcol = 49;
+    move(11, rcvcol);
+    printLabel("-------- Receiver ---------------");
+    move(12, rcvcol);
+    printLabel("LO Freq. (GHz):   ");
+    printw("%-15.6f", rfFinalLO);
+    move(13, rcvcol);
+    printLabel("Synth. Freq (Hz): ");
+    printw("%-15.2f", rfSynthFreq);
+    move(14, rcvcol);
+    printLabel("Synth. Power (dBm):  ");
+    printw("%-12.4f", rfSynthPower);
+    move(15, rcvcol);
+    printLabel("Coldhead temp.:   ");
+    printw("%.1f K", rfCryostatColdhead);
+    move(16, rcvcol);
     printLabel("---------------------------------");
   }
 
@@ -1683,7 +1702,7 @@ void screen(char *source,double *lst_disp,double *utc_disp,double *tjd_disp,
     nextline=nextline+4;
 */
 
-    nextline = 11;
+    nextline = 19;
 
     move(nextline,nextcol);
     printLabel("Hexapod  UpTime: ");
