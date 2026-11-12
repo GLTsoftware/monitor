@@ -12,34 +12,20 @@
 #define DSM_SUCCESS 0
 #define MICRODEG_TO_ARCSEC 0.0036
 
-/* The active pointing-model mode is published by gltTrack to redis (hash
-   gltTrackComp) on gltacc's redis server, which is not the server gltmonitor
-   uses elsewhere, so open a dedicated connection here. Fills type with
-   optical/0/86/230/86+230/345, or "unknown" if redis is unreachable or the
-   value is stale (> 30 s old). */
-#define PM_REDIS_SERVER "192.168.1.11"
-#define PM_REDIS_PORT 6379
+/* The active pointing-model mode is published by gltTrack (a separate low-priority
+   thread there) to redis hash gltTrackComp on the gltobscon redis server, the same
+   server gltmonitor already connects to (redisC, opened in gltmonitor.c).
+   Fills type with optical/0/86/230/86+230/345, or "unknown" if redis is
+   unavailable or the value is stale (> PM_STALE_SEC old). */
 #define PM_STALE_SEC 30
-static redisContext *pmRedis=NULL;
-static int pmLastTry=-1000;
+extern redisContext *redisC;
 
 static void getPointingModelType(int count, char *type, int len) {
   redisReply *r;
   strcpy(type,"unknown");
-  if (pmRedis==NULL) {
-    if (count-pmLastTry < 20) return;   /* don't stall the display retrying */
-    pmLastTry=count;
-    struct timeval tv={0,300000};
-    pmRedis=redisConnectWithTimeout(PM_REDIS_SERVER,PM_REDIS_PORT,tv);
-    if (pmRedis==NULL || pmRedis->err) {
-      if (pmRedis) redisFree(pmRedis);
-      pmRedis=NULL;
-      return;
-    }
-    redisSetTimeout(pmRedis,tv);
-  }
-  r=redisCommand(pmRedis,"HMGET gltTrackComp pointingModelType pointingModelTime");
-  if (r==NULL) { redisFree(pmRedis); pmRedis=NULL; return; }
+  if (redisC==NULL) return;
+  r=redisCommand(redisC,"HMGET gltTrackComp pointingModelType pointingModelTime");
+  if (r==NULL) return;
   if (r->type==REDIS_REPLY_ARRAY && r->elements==2 &&
       r->element[0]->type==REDIS_REPLY_STRING &&
       r->element[1]->type==REDIS_REPLY_STRING) {
